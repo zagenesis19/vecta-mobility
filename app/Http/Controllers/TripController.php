@@ -15,75 +15,54 @@ class TripController extends Controller
         return Inertia::render('RequestRide');
     }
 
+   // 1. MODIFICAR: Cuando el pasajero pide el viaje
     public function store(Request $request)
     {
-        // 1. Validar que vengan los datos
         $request->validate([
             'origin_lat' => 'required',
             'origin_long' => 'required',
             'dest_lat' => 'required',
             'dest_long' => 'required',
+            'distance' => 'required',
+            'fare' => 'required',
         ]);
 
-        // 2. Tomar las coordenadas REALES del formulario
-        $origin_lat = $request->origin_lat;
-        $origin_long = $request->origin_long;
-        $dest_lat = $request->dest_lat;
-        $dest_long = $request->dest_long;
-
-        // 3. CÁLCULO DE DISTANCIA (Fórmula de Haversine)
-        $earthRadius = 6371; // Radio de la tierra en km
-
-        $dLat = deg2rad($dest_lat - $origin_lat);
-        $dLon = deg2rad($dest_long - $origin_long);
-
-        $a = sin($dLat / 2) * sin($dLat / 2) +
-             cos(deg2rad($origin_lat)) * cos(deg2rad($dest_lat)) *
-             sin($dLon / 2) * sin($dLon / 2);
-             
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-        
-        $distanciaLineal = $earthRadius * $c; // Distancia en línea recta
-        $distancia = $distanciaLineal * 1.4;  // Corrección por tráfico/curvas (Factor Urbano)
-
-        // 4. PRECIO
-        $precio = 2.00 + ($distancia * 1.50);
-
-        // 5. BUSCAR CONDUCTOR (Emparejamiento)
-        // Buscamos un usuario que sea conductor y no sea yo mismo
-        $driver = User::where('role', 'driver')
-                    ->where('id', '!=', Auth::id())
-                    ->inRandomOrder()
-                    ->first();
-
-        // 6. GUARDAR EL VIAJE (¡Aquí estaba el error antes!)
-        Trip::create([
-            'passenger_id' => Auth::id(),
-            'driver_id' => $driver ? $driver->id : null, // Asigna conductor o NULL
-            
-            // ESTAS SON LAS LÍNEAS QUE FALTABAN:
-            'origin_lat' => $origin_lat,
-            'origin_long' => $origin_long,
-            'dest_lat' => $dest_lat,
-            'dest_long' => $dest_long,
-            'distance' => round($distancia, 2),
-            'fare' => round($precio, 2),
-            'status' => 'active',
+        $trip = Trip::create([
+            'passenger_id' => auth()->id(),
+            'driver_id' => null,       // <--- IMPORTANTE: Nace sin chofer
+            'origin_lat' => $request->origin_lat,
+            'origin_long' => $request->origin_long,
+            'dest_lat' => $request->dest_lat,
+            'dest_long' => $request->dest_long,
+            'distance' => $request->distance,
+            'fare' => $request->fare,
+            'status' => 'pending',     // <--- Nace en espera
         ]);
 
-        return redirect()->route('dashboard');
+        // Redirigimos al Dashboard con un mensaje (usando Flash de Inertia si lo tienes config, sino no pasa nada)
+        return redirect()->route('dashboard')->with('message', 'Buscando conductor...');
     }
 
-    public function updateStatus(Request $request, Trip $trip)
+    // 2. NUEVO: Cuando el conductor acepta el viaje
+    public function accept($id)
     {
-        $request->validate([
-            'status' => 'required|in:completed,cancelled'
-        ]);
+        $trip = Trip::findOrFail($id);
 
+        // Seguridad: Solo un conductor puede aceptar y solo si el viaje está pendiente
+        if (auth()->user()->role !== 'driver') {
+            abort(403, 'Solo los conductores pueden aceptar viajes.');
+        }
+
+        if ($trip->status !== 'pending') {
+            return back()->with('error', 'Este viaje ya fue tomado por otro conductor.');
+        }
+
+        // Asignamos el viaje a ESTE conductor
         $trip->update([
-            'status' => $request->status
+            'driver_id' => auth()->id(),
+            'status' => 'accepted' // O 'in_progress' si prefieres que arranque de una vez
         ]);
 
-        return back();
+        return back(); // Recargamos para que vea que ya es suyo
     }
 }

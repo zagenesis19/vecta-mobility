@@ -23,25 +23,56 @@ Route::get('/', function () {
 });
 
 Route::get('/dashboard', function () {
-    // Esta lógica la tenías en tu archivo original para mostrar los viajes
     $user = auth()->user();
-    
-    // Si es ADMIN, mostramos todos los viajes para el mapa de calor
-    if ($user->email === 'admin@vecta.com') {
-        $trips = \App\Models\Trip::all(); 
-        return Inertia::render('Dashboard', ['trips' => $trips]);
+
+    // --- CASO 1: ADMINISTRADOR ---
+    // Si tu usuario admin tiene el rol 'admin' o el correo específico
+    if ($user->role === 'admin' || $user->email === 'admin@vecta.com') {
+        // El jefe ve todo para los mapas y estadísticas
+        $trips = \App\Models\Trip::with(['passenger', 'driver'])->latest()->get(); 
+        return Inertia::render('Dashboard', [
+            'trips' => $trips,
+            'userRole' => 'admin' // Le avisamos al frontend quién es
+        ]);
     }
 
-    // Si es Usuario normal (Pasajero o Chofer)
-    $trips = \App\Models\Trip::query()
-        ->where('passenger_id', $user->id)
-        ->orWhere('driver_id', $user->id)
-        ->with(['passenger', 'driver'])
+    // --- CASO 2: CONDUCTOR ---
+    if ($user->role === 'driver') {
+        // A. Viajes Disponibles (Status 'pending' y SIN chofer asignado)
+        // Esto es lo que saldrá en la "Tarjeta de Alerta" para que acepte
+        $availableTrips = \App\Models\Trip::where('status', 'pending')
+            ->whereNull('driver_id')
+            ->with('passenger') // Traemos datos del pasajero para saber a quién recoger
+            ->latest()
+            ->get();
+
+        // B. Mis Viajes (Los que este chofer ya aceptó o completó)
+        $myTrips = \App\Models\Trip::where('driver_id', $user->id)
+            ->with('passenger')
+            ->latest()
+            ->take(10) // Solo los últimos 10
+            ->get();
+
+        return Inertia::render('Dashboard', [
+            'trips' => $myTrips,           // Para su historial
+            'availableTrips' => $availableTrips, // Para que acepte nuevos
+            'userRole' => 'driver'
+        ]);
+    }
+
+    // --- CASO 3: PASAJERO (Default) ---
+    // Solo ve SUS viajes
+    $trips = \App\Models\Trip::where('passenger_id', $user->id)
+        ->with('driver') // Traemos datos del chofer (si ya aceptó)
         ->latest()
         ->take(5)
         ->get();
 
-    return Inertia::render('Dashboard', ['trips' => $trips]);
+    return Inertia::render('Dashboard', [
+        'trips' => $trips,
+        'userRole' => 'passenger'
+    ]);
+
 })->middleware(['auth', 'verified'])->name('dashboard');
 
 // --- GRUPO DE RUTAS DE PERFIL Y VIAJES ---
@@ -55,7 +86,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/request-ride', [TripController::class, 'create'])->name('trip.create');
     Route::post('/request-ride', [TripController::class, 'store'])->name('trip.store');
     Route::post('/trip/{trip}/status', [TripController::class, 'updateStatus'])->name('trip.updateStatus');
-}); // <--- AQUÍ CIERRA EL GRUPO ANTERIOR (Mira el punto y coma)
+}); 
+
+    // NUEVA RUTA: Aceptar viaje
+    Route::put('/trip/{id}/accept', [TripController::class, 'accept'])->name('trip.accept');
 
 // --- RUTAS DE ADMINISTRADOR (NUEVAS) ---
 Route::middleware(['auth'])->group(function () {
@@ -65,6 +99,7 @@ Route::middleware(['auth'])->group(function () {
     // Aprobar a uno específico
     Route::put('/admin/drivers/{id}/approve', [AdminController::class, 'approve'])->name('admin.approve');
 });
+
 
 // --- FINAL DEL ARCHIVO ---
 require __DIR__.'/auth.php';
