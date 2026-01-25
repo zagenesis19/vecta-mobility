@@ -14,7 +14,6 @@ use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
 
-
 class RegisteredUserController extends Controller
 {
     /**
@@ -36,33 +35,36 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => 'required|string',
-            // Validaciones nuevas (son 'nullable' porque el Pasajero no las envía)
-            'car_model' => 'nullable|string|max:50',
-            'license_plate' => 'nullable|string|max:20',
-            'vehicle_year' => 'nullable|integer|min:1990|max:'.(date('Y')+1),
-            'license_photo' => 'nullable|image|max:2048', // Máximo 2MB, solo imágenes
+            'role' => 'required|string|in:passenger,driver', // Validamos que sea uno de los dos
+            
+            // --- CORREGIDO: Usamos los nombres de TU base de datos ---
+            'vehicle_model' => 'nullable|required_if:role,driver|string|max:255',
+            'vehicle_plate' => 'nullable|required_if:role,driver|string|max:20',
+            'vehicle_year'  => 'nullable|required_if:role,driver|integer|min:1990|max:'.(date('Y')+1),
+            'license_file'  => 'nullable|required_if:role,driver|image|max:5120', // 5MB Max
         ]);
 
         // 1. Manejo de la FOTO (Si subieron una)
-        $photoPath = null;
-        if ($request->hasFile('license_photo')) {
-            // Guardar en la carpeta "licenses" dentro del disco "public"
-            $photoPath = $request->file('license_photo')->store('licenses', 'public');
+        $licensePath = null;
+        
+        // OJO: Tu formulario envía 'license_file', no 'license_photo'
+        if ($request->hasFile('license_file')) {
+            $licensePath = $request->file('license_file')->store('licenses', 'public');
         }
 
-        // 2. Crear el Usuario con TODOS los datos
+        // 2. Crear el Usuario con los nombres CORRECTOS de la Base de Datos
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
-            // Datos del Conductor
-            'car_model' => $request->car_model,
-            'license_plate' => $request->license_plate,
-            'vehicle_year' => $request->vehicle_year,
-            'license_photo_path' => $photoPath,
             'is_approved' => false, // Por defecto nadie está aprobado
+
+            // Aquí estaba el error: cambiamos car_model por vehicle_model
+            'vehicle_model' => $request->vehicle_model,
+            'vehicle_plate' => $request->vehicle_plate,
+            'vehicle_year'  => $request->vehicle_year,
+            'license_file'  => $licensePath, 
         ]);
 
         event(new Registered($user));
