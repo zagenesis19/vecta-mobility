@@ -6,10 +6,11 @@ use App\Http\Controllers\AdminController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
+use App\Models\User; // Importamos el modelo User para las consultas
 
 /*
 |--------------------------------------------------------------------------
-| Rutas Web - Vecta Mobility (Versión Completa)
+| Rutas Web - Vecta Mobility
 |--------------------------------------------------------------------------
 */
 
@@ -23,20 +24,33 @@ Route::get('/', function () {
     ]);
 });
 
-// 2. DASHBOARD INTELIGENTE (Detecta Roles)
+// 2. DASHBOARD INTELIGENTE (Detecta Roles y envía datos)
 Route::get('/dashboard', function () {
     $user = auth()->user();
 
-    // A. ADMINISTRADOR
+    // =========================================================
+    // A. ADMINISTRADOR (Aquí estaba el problema)
+    // =========================================================
     if ($user->role === 'admin' || $user->email === 'admin@vecta.com') {
+        
+        // 1. Obtener viajes recientes
         $trips = \App\Models\Trip::with(['passenger', 'driver'])->latest()->get(); 
+        
+        // 2. 🔥 CORRECCIÓN: Buscar conductores pendientes de aprobación
+        $pendingDrivers = User::where('role', 'driver')
+            ->where('is_approved', false) // Buscamos los NO aprobados
+            ->get();
+
         return Inertia::render('Dashboard', [
             'trips' => $trips,
+            'pendingDrivers' => $pendingDrivers, // <--- ¡Ahora sí enviamos la lista!
             'userRole' => 'admin'
         ]);
     }
 
+    // =========================================================
     // B. CONDUCTOR
+    // =========================================================
     if ($user->role === 'driver') {
         // Viajes disponibles para aceptar (Pendientes y sin chofer)
         $availableTrips = \App\Models\Trip::where('status', 'pending')
@@ -53,13 +67,19 @@ Route::get('/dashboard', function () {
             ->get();
 
         return Inertia::render('Dashboard', [
-            'trips' => $myTrips,
+            'trips' => $myTrips, 
+            'myTrips' => $myTrips,
             'availableTrips' => $availableTrips,
-            'userRole' => 'driver'
+            'userRole' => 'driver',
+            
+            // Enviamos el estado del candado
+            'isApproved' => (bool) $user->is_approved, 
         ]);
     }
 
+    // =========================================================
     // C. PASAJERO (Default)
+    // =========================================================
     $trips = \App\Models\Trip::where('passenger_id', $user->id)
         ->with('driver')
         ->latest()
@@ -81,22 +101,25 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
     // --- GESTIÓN DE VIAJES (PASAJERO) ---
-    Route::get('/request-ride', [TripController::class, 'create'])->name('trip.create');
-    Route::post('/request-ride', [TripController::class, 'store'])->name('trip.store');
-
-
+    Route::get('/request-ride', [TripController::class, 'create'])->name('trips.create');
+    Route::post('/request-ride', [TripController::class, 'store'])->name('trips.store');
     Route::post('/trip/{trip}/status', [TripController::class, 'updateStatus'])->name('trip.updateStatus');
 
-    // --- GESTIÓN DE VIAJES (CONDUCTOR - FLUJO COMPLETO) ---
+    // --- GESTIÓN DE VIAJES (CONDUCTOR) ---
     Route::put('/trip/{id}/accept', [TripController::class, 'accept'])->name('trip.accept');
     Route::put('/trip/{id}/start', [TripController::class, 'startTrip'])->name('trip.start');
     Route::put('/trip/{id}/finish', [TripController::class, 'finishTrip'])->name('trip.finish');
 });
 
-// 4. RUTAS DE ADMINISTRADOR
+// 4. RUTAS DE ADMINISTRADOR (Gestión de Choferes)
 Route::middleware(['auth'])->group(function () {
     Route::get('/admin/drivers', [AdminController::class, 'index'])->name('admin.drivers');
+    
+    // Aprobar Conductor
     Route::put('/admin/drivers/{id}/approve', [AdminController::class, 'approve'])->name('admin.approve');
+    
+    // Rechazar Conductor (Agregada para que funcione tu botón de "Rechazar")
+    Route::delete('/admin/drivers/{id}/reject', [AdminController::class, 'reject'])->name('admin.reject');
 });
 
 require __DIR__.'/auth.php';
