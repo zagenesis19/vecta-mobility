@@ -83,17 +83,14 @@ Route::middleware('auth')->group(function () {
     // --- GESTIÓN DE VIAJES (PASAJERO) ---
     Route::get('/request-ride', [TripController::class, 'create'])->name('trip.create');
     Route::post('/request-ride', [TripController::class, 'store'])->name('trip.store');
-    
-    // --- GESTIÓN DE VIAJES (CONDUCTOR - FLUJO COMPLETO) ---
-    // Aceptar viaje
-    Route::put('/trip/{id}/accept', [TripController::class, 'accept'])->name('trip.accept');
-    // Iniciar viaje (Recogió al pasajero)
-    Route::put('/trip/{id}/start', [TripController::class, 'startTrip'])->name('trip.start');
-    // Finalizar viaje (Llegó al destino y cobró)
-    Route::put('/trip/{id}/finish', [TripController::class, 'finishTrip'])->name('trip.finish');
-    
-    // Actualizar estado genérico (si se usa)
+
+
     Route::post('/trip/{trip}/status', [TripController::class, 'updateStatus'])->name('trip.updateStatus');
+
+    // --- GESTIÓN DE VIAJES (CONDUCTOR - FLUJO COMPLETO) ---
+    Route::put('/trip/{id}/accept', [TripController::class, 'accept'])->name('trip.accept');
+    Route::put('/trip/{id}/start', [TripController::class, 'startTrip'])->name('trip.start');
+    Route::put('/trip/{id}/finish', [TripController::class, 'finishTrip'])->name('trip.finish');
 });
 
 // 4. RUTAS DE ADMINISTRADOR

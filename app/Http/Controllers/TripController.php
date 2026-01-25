@@ -65,4 +65,38 @@ class TripController extends Controller
 
         return back(); // Recargamos para que vea que ya es suyo
     }
+    // 3. INICIAR EL VIAJE (El pasajero subió al carro)
+    public function startTrip($id)
+    {
+        $trip = Trip::findOrFail($id);
+
+        // Seguridad: Solo el chofer asignado puede iniciarlo
+        if (auth()->id() !== $trip->driver_id) {
+            abort(403, 'No tienes permiso para iniciar este viaje.');
+        }
+
+        $trip->update([
+            'status' => 'in_progress'
+        ]);
+
+        return back();
+    }
+
+    // 4. FINALIZAR Y COBRAR (Llegaron al destino)
+    public function finishTrip($id)
+    {
+        $trip = Trip::findOrFail($id);
+
+        if (auth()->id() !== $trip->driver_id) {
+            abort(403, 'No tienes permiso para finalizar este viaje.');
+        }
+
+        // Aquí "simulamos" que el pago se procesó exitosamente
+        $trip->update([
+            'status' => 'completed',
+            // Si tuvieras una columna 'payment_status', aquí pondrías 'paid'
+        ]);
+
+        return back(); 
+    }
 }
