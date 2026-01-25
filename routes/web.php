@@ -29,21 +29,21 @@ Route::get('/dashboard', function () {
     $user = auth()->user();
 
     // =========================================================
-    // A. ADMINISTRADOR (Aquí estaba el problema)
+    // A. ADMINISTRADOR
     // =========================================================
     if ($user->role === 'admin' || $user->email === 'admin@vecta.com') {
         
         // 1. Obtener viajes recientes
         $trips = \App\Models\Trip::with(['passenger', 'driver'])->latest()->get(); 
         
-        // 2. 🔥 CORRECCIÓN: Buscar conductores pendientes de aprobación
+        // 2. Buscar conductores pendientes de aprobación
         $pendingDrivers = User::where('role', 'driver')
-            ->where('is_approved', false) // Buscamos los NO aprobados
+            ->where('is_approved', false) 
             ->get();
 
         return Inertia::render('Dashboard', [
             'trips' => $trips,
-            'pendingDrivers' => $pendingDrivers, // <--- ¡Ahora sí enviamos la lista!
+            'pendingDrivers' => $pendingDrivers,
             'userRole' => 'admin'
         ]);
     }
@@ -103,6 +103,10 @@ Route::middleware('auth')->group(function () {
     // --- GESTIÓN DE VIAJES (PASAJERO) ---
     Route::get('/request-ride', [TripController::class, 'create'])->name('trips.create');
     Route::post('/request-ride', [TripController::class, 'store'])->name('trips.store');
+    
+    // 🔥 NUEVA RUTA PARA CANCELAR VIAJE
+    Route::delete('/trip/{trip}/cancel', [TripController::class, 'cancel'])->name('trip.cancel');
+
     Route::post('/trip/{trip}/status', [TripController::class, 'updateStatus'])->name('trip.updateStatus');
 
     // --- GESTIÓN DE VIAJES (CONDUCTOR) ---
@@ -118,7 +122,7 @@ Route::middleware(['auth'])->group(function () {
     // Aprobar Conductor
     Route::put('/admin/drivers/{id}/approve', [AdminController::class, 'approve'])->name('admin.approve');
     
-    // Rechazar Conductor (Agregada para que funcione tu botón de "Rechazar")
+    // Rechazar Conductor
     Route::delete('/admin/drivers/{id}/reject', [AdminController::class, 'reject'])->name('admin.reject');
 });
 
