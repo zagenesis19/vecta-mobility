@@ -90,6 +90,17 @@ Route::middleware('auth')->group(function () {
 
     // NUEVA RUTA: Aceptar viaje
     Route::put('/trip/{id}/accept', [TripController::class, 'accept'])->name('trip.accept');
+    // --- RUTAS DE VIAJES ---
+    // Solicitar
+    Route::get('/request-ride', [TripController::class, 'create'])->name('trip.create');
+    Route::post('/request-ride', [TripController::class, 'store'])->name('trip.store');
+    
+    // Gestión del Chofer
+    Route::put('/trip/{id}/accept', [TripController::class, 'accept'])->name('trip.accept');
+    
+    // NUEVAS: Iniciar y Finalizar
+    Route::put('/trip/{id}/start', [TripController::class, 'startTrip'])->name('trip.start');
+    Route::put('/trip/{id}/finish', [TripController::class, 'finishTrip'])->name('trip.finish');giy
 
 // --- RUTAS DE ADMINISTRADOR (NUEVAS) ---
 Route::middleware(['auth'])->group(function () {
