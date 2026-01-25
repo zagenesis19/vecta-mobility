@@ -14,7 +14,6 @@ use Illuminate\Validation\Rules;
 use Inertia\Inertia;
 use Inertia\Response;
 
-
 class RegisteredUserController extends Controller
 {
     /**
@@ -36,39 +35,47 @@ class RegisteredUserController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
-            'role' => 'required|string',
-            // Validaciones nuevas (son 'nullable' porque el Pasajero no las envía)
-            'car_model' => 'nullable|string|max:50',
-            'license_plate' => 'nullable|string|max:20',
-            'vehicle_year' => 'nullable|integer|min:1990|max:'.(date('Y')+1),
-            'license_photo' => 'nullable|image|max:2048', // Máximo 2MB, solo imágenes
+            'role' => 'required|string|in:passenger,driver',
+            
+            // --- VALIDACIONES DE VEHÍCULO ---
+            // Agregamos 'vehicle_color' que estaba en tu Vue
+            'vehicle_model' => 'nullable|required_if:role,driver|string|max:255',
+            'vehicle_plate' => 'nullable|required_if:role,driver|string|max:20',
+            'vehicle_year'  => 'nullable|required_if:role,driver|integer|min:1990|max:'.(date('Y')+1),
+            'vehicle_color' => 'nullable|required_if:role,driver|string|max:50', 
+            
+            // Nota: Quitamos 'required_if' de la licencia porque tu formulario Vue actual 
+            // solo pide textos. Si quieres pedir foto, debemos actualizar el Vue luego.
+            'license_file'  => 'nullable|image|max:5120', 
         ]);
 
-        // 1. Manejo de la FOTO (Si subieron una)
-        $photoPath = null;
-        if ($request->hasFile('license_photo')) {
-            // Guardar en la carpeta "licenses" dentro del disco "public"
-            $photoPath = $request->file('license_photo')->store('licenses', 'public');
+        // 1. Manejo de la FOTO (Si en el futuro agregas el input file)
+        $licensePath = null;
+        if ($request->hasFile('license_file')) {
+            $licensePath = $request->file('license_file')->store('licenses', 'public');
         }
 
-        // 2. Crear el Usuario con TODOS los datos
+        // 2. Crear el Usuario
         $user = User::create([
             'name' => $request->name,
             'email' => $request->email,
             'password' => Hash::make($request->password),
             'role' => $request->role,
-            // Datos del Conductor
-            'car_model' => $request->car_model,
-            'license_plate' => $request->license_plate,
-            'vehicle_year' => $request->vehicle_year,
-            'license_photo_path' => $photoPath,
             'is_approved' => false, // Por defecto nadie está aprobado
+
+            // Datos del Vehículo
+            'vehicle_model' => $request->vehicle_model,
+            'vehicle_plate' => $request->vehicle_plate,
+            'vehicle_year'  => $request->vehicle_year,
+            'vehicle_color' => $request->vehicle_color, // <--- Importante: Guardamos el color
+            'license_file'  => $licensePath, 
         ]);
 
         event(new Registered($user));
 
         Auth::login($user);
 
-        return redirect(RouteServiceProvider::HOME);
+        // Redirigimos al Dashboard
+        return redirect(route('dashboard', absolute: false));
     }
 }

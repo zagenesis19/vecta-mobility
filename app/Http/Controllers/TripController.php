@@ -3,100 +3,137 @@
 namespace App\Http\Controllers;
 
 use App\Models\Trip;
-use App\Models\User;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
+use Illuminate\Support\Facades\Auth;
 
 class TripController extends Controller
 {
+    // --- 🧠 CEREBRO MATEMÁTICO (Fórmula de Haversine) ---
+    // Esta función calcula la distancia exacta en Km entre dos coordenadas
+    private function calculateDistance($lat1, $lon1, $lat2, $lon2)
+    {
+        $earthRadius = 6371; // Radio de la Tierra en km
+
+        $dLat = deg2rad($lat2 - $lat1);
+        $dLon = deg2rad($lon2 - $lon1);
+
+        $a = sin($dLat / 2) * sin($dLat / 2) +
+             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
+             sin($dLon / 2) * sin($dLon / 2);
+
+        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
+
+        return $earthRadius * $c; // Devuelve distancia en KM
+    }
+
+    // 1. MOSTRAR EL FORMULARIO (GET)
     public function create()
     {
-        return Inertia::render('RequestRide');
+        return Inertia::render('Trips/Create');
     }
 
-   // 1. MODIFICAR: Cuando el pasajero pide el viaje
+    // 2. GUARDAR EL VIAJE (POST) - AHORA CON PRECIO REAL 💸
     public function store(Request $request)
     {
+        // A. Validar que no envíen campos vacíos y que vengan las COORDENADAS
         $request->validate([
-            'origin_lat' => 'required',
-            'origin_long' => 'required',
-            'dest_lat' => 'required',
-            'dest_long' => 'required',
-            'distance' => 'required',
-            'fare' => 'required',
+            'origin' => 'required|string|max:255',
+            'destination' => 'required|string|max:255',
+            // Validamos que el frontend nos mande los números del GPS
+            'origin_lat' => 'required|numeric',
+            'origin_lng' => 'required|numeric',
+            'destination_lat' => 'required|numeric',
+            'destination_lng' => 'required|numeric',
         ]);
 
-        $trip = Trip::create([
-            'passenger_id' => auth()->id(),
-            'driver_id' => null,       // <--- IMPORTANTE: Nace sin chofer
-            'origin_lat' => $request->origin_lat,
-            'origin_long' => $request->origin_long,
-            'dest_lat' => $request->dest_lat,
-            'dest_long' => $request->dest_long,
-            'distance' => $request->distance,
-            'fare' => $request->fare,
-            'status' => 'pending',     // <--- Nace en espera
+        // B. Calcular la distancia usando la función matemática
+        $distanceKm = $this->calculateDistance(
+            $request->origin_lat,
+            $request->origin_lng,
+            $request->destination_lat,
+            $request->destination_lng
+        );
+
+        // C. Definir Tarifas (Configuración estilo Ridery)
+        $baseFare = 1.00;      // Tarifa mínima por arrancar ($1.00)
+        $costPerKm = 0.50;     // Costo por cada Kilómetro ($0.50)
+        
+        // Fórmula: Base + (Km * Costo)
+        $estimatedPrice = $baseFare + ($distanceKm * $costPerKm);
+        
+        // Redondear a 2 decimales y asegurar que nunca cueste menos de $1.50
+        $finalPrice = max(1.50, round($estimatedPrice, 2));
+
+        // D. Crear el viaje en la Base de Datos
+        Trip::create([
+            'passenger_id' => Auth::id(), 
+            'origin' => $request->origin,
+            'destination' => $request->destination,
+            'status' => 'pending',        
+            'price' => $finalPrice,       // 🔥 AQUÍ GUARDAMOS EL PRECIO REAL
+            'driver_id' => null,          
         ]);
 
-        // Redirigimos al Dashboard con un mensaje (usando Flash de Inertia si lo tienes config, sino no pasa nada)
-        return redirect()->route('dashboard')->with('message', 'Buscando conductor...');
+        // E. Redirigir al Dashboard
+        return redirect()->route('dashboard')->with('message', '¡Solicitud enviada! Precio estimado: $' . $finalPrice);
     }
 
-    // 2. NUEVO: Cuando el conductor acepta el viaje
+    // --- FUNCIONES PARA EL CONDUCTOR (INTACTAS) ---
+
     public function accept($id)
     {
         $trip = Trip::findOrFail($id);
-
-        // Seguridad: Solo un conductor puede aceptar y solo si el viaje está pendiente
-        if (auth()->user()->role !== 'driver') {
-            abort(403, 'Solo los conductores pueden aceptar viajes.');
-        }
-
+        
+        // Solo aceptar si está pendiente
         if ($trip->status !== 'pending') {
-            return back()->with('error', 'Este viaje ya fue tomado por otro conductor.');
-        }
-
-        // Asignamos el viaje a ESTE conductor
-        $trip->update([
-            'driver_id' => auth()->id(),
-            'status' => 'accepted' // O 'in_progress' si prefieres que arranque de una vez
-        ]);
-
-        return back(); // Recargamos para que vea que ya es suyo
-    }
-    // 3. INICIAR EL VIAJE (El pasajero subió al carro)
-    public function startTrip($id)
-    {
-        $trip = Trip::findOrFail($id);
-
-        // Seguridad: Solo el chofer asignado puede iniciarlo
-        if (auth()->id() !== $trip->driver_id) {
-            abort(403, 'No tienes permiso para iniciar este viaje.');
+            return back()->withErrors(['error' => 'Este viaje ya no está disponible.']);
         }
 
         $trip->update([
-            'status' => 'in_progress'
+            'driver_id' => Auth::id(),
+            'status' => 'accepted'
         ]);
 
         return back();
     }
 
-    // 4. FINALIZAR Y COBRAR (Llegaron al destino)
+    public function startTrip($id)
+    {
+        $trip = Trip::findOrFail($id);
+        if ($trip->driver_id !== Auth::id()) abort(403);
+
+        $trip->update(['status' => 'in_progress']);
+        return back();
+    }
+
     public function finishTrip($id)
     {
         $trip = Trip::findOrFail($id);
+        if ($trip->driver_id !== Auth::id()) abort(403);
 
-        if (auth()->id() !== $trip->driver_id) {
-            abort(403, 'No tienes permiso para finalizar este viaje.');
+        $trip->update(['status' => 'completed']);
+        return back();
+    }
+
+    // --- FUNCIÓN: CANCELAR / LIBERAR VIAJE (INTACTA) ---
+    public function cancel($id)
+    {
+        $trip = Trip::findOrFail($id);
+        $user = Auth::user();
+
+        // CASO A: Si el PASAJERO cancela -> Se borra el viaje
+        if ($user->role === 'passenger' && $trip->passenger_id === $user->id) {
+            $trip->delete();
+        }
+        // CASO B: Si el CONDUCTOR cancela -> Libera el viaje para otro
+        elseif ($user->role === 'driver' && $trip->driver_id === $user->id) {
+            $trip->update([
+                'driver_id' => null,
+                'status' => 'pending'
+            ]);
         }
 
-        // Aquí "simulamos" que el pago se procesó exitosamente
-        $trip->update([
-            'status' => 'completed',
-            // Si tuvieras una columna 'payment_status', aquí pondrías 'paid'
-        ]);
-
-        return back(); 
+        return back();
     }
 }

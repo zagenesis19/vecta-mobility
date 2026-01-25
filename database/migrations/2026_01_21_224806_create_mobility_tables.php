@@ -8,7 +8,7 @@ return new class extends Migration
 {
     public function up(): void
     {
-        // Tabla de Vehículos
+        // 1. Tabla de Vehículos (La dejamos igual, funciona bien)
         Schema::create('vehicles', function (Blueprint $table) {
             $table->id();
             $table->foreignId('driver_id')->constrained('users')->onDelete('cascade');
@@ -19,18 +19,24 @@ return new class extends Migration
             $table->timestamps();
         });
 
-        // Tabla de Viajes
+        // 2. Tabla de Viajes (CORREGIDA para Fase 5)
         Schema::create('trips', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('passenger_id')->constrained('users'); // El usuario que pide el viaje
-            $table->foreignId('driver_id')->nullable()->constrained('users'); // El conductor (puede ser nulo al inicio)
-            $table->decimal('origin_lat', 10, 8);
-            $table->decimal('origin_long', 11, 8);
-            $table->decimal('dest_lat', 10, 8);
-            $table->decimal('dest_long', 11, 8);
-            $table->enum('status', ['pending', 'active', 'completed', 'cancelled'])->default('pending');
-            $table->decimal('fare', 8, 2); // Precio
-            $table->double('distance'); // Distancia
+            
+            // Relaciones
+            $table->foreignId('passenger_id')->constrained('users')->onDelete('cascade');
+            $table->foreignId('driver_id')->nullable()->constrained('users')->onDelete('cascade');
+            
+            // --- CAMBIO IMPORTANTE: Usamos texto para las direcciones ---
+            $table->string('origin');       // Ej: "Plaza Bolívar"
+            $table->string('destination');  // Ej: "Centro Comercial"
+            // ------------------------------------------------------------
+
+            $table->string('status')->default('pending'); // pending, accepted, in_progress, completed
+            
+            // Cambiamos 'fare' por 'price' para coincidir con tu Controlador
+            $table->decimal('price', 8, 2)->nullable(); 
+            
             $table->timestamps();
         });
     }
