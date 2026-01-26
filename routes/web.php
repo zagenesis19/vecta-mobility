@@ -104,15 +104,20 @@ Route::middleware('auth')->group(function () {
     Route::get('/request-ride', [TripController::class, 'create'])->name('trips.create');
     Route::post('/request-ride', [TripController::class, 'store'])->name('trips.store');
     
-    // 🔥 NUEVA RUTA PARA CANCELAR VIAJE
+    // 🔥 RUTA PARA CANCELAR VIAJE
     Route::delete('/trip/{trip}/cancel', [TripController::class, 'cancel'])->name('trip.cancel');
 
     Route::post('/trip/{trip}/status', [TripController::class, 'updateStatus'])->name('trip.updateStatus');
 
     // --- GESTIÓN DE VIAJES (CONDUCTOR) ---
+    // Aceptar
     Route::put('/trip/{id}/accept', [TripController::class, 'accept'])->name('trip.accept');
-    Route::put('/trip/{id}/start', [TripController::class, 'startTrip'])->name('trip.start');
-    Route::put('/trip/{id}/finish', [TripController::class, 'finishTrip'])->name('trip.finish');
+    
+    // 🛑 AQUÍ ESTABA EL ERROR: Cambiamos 'trip.start' por 'trips.start' (con S)
+    Route::put('/trip/{id}/start', [TripController::class, 'startTrip'])->name('trips.start');
+    
+    // 🛑 AQUÍ ESTABA EL ERROR: Cambiamos 'trip.finish' por 'trips.finish' (con S)
+    Route::put('/trip/{id}/finish', [TripController::class, 'finishTrip'])->name('trips.finish');
 });
 
 // 4. RUTAS DE ADMINISTRADOR (Gestión de Choferes)
