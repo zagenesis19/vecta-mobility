@@ -6,6 +6,10 @@ import { createInertiaApp } from '@inertiajs/vue3';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { ZiggyVue } from '../../vendor/tightenco/ziggy';
 
+// Importamos los estilos de Leaflet
+import 'leaflet/dist/leaflet.css';
+
+// 🔥 CORRECCIÓN AQUÍ: Dejamos solo una declaración de appName
 const appName = import.meta.env.VITE_APP_NAME || 'Laravel';
 
 createInertiaApp({

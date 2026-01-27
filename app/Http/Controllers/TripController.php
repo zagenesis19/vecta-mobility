@@ -66,14 +66,27 @@ class TripController extends Controller
         $finalPrice = max(1.50, round($estimatedPrice, 2));
 
         // D. Crear el viaje en la Base de Datos
+       // ... (cálculos de distancia y precio anteriores) ...
+
+        // D. Crear el viaje en la Base de Datos
         Trip::create([
             'passenger_id' => Auth::id(), 
             'origin' => $request->origin,
             'destination' => $request->destination,
+            
+            // 🔥 GUARDAMOS LAS COORDENADAS GPS (NUEVO)
+            'origin_lat' => $request->origin_lat,
+            'origin_lng' => $request->origin_lng,
+            'destination_lat' => $request->destination_lat,
+            'destination_lng' => $request->destination_lng,
+
             'status' => 'pending',        
-            'price' => $finalPrice,       // 🔥 AQUÍ GUARDAMOS EL PRECIO REAL
+            'price' => $finalPrice,
+            'payment_method' => $request->payment_method,
             'driver_id' => null,          
         ]);
+
+        // ... (retorno redirect) ...
 
         // E. Redirigir al Dashboard
         return redirect()->route('dashboard')->with('message', '¡Solicitud enviada! Precio estimado: $' . $finalPrice);

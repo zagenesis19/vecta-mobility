@@ -9,9 +9,25 @@ class Trip extends Model
 {
     use HasFactory;
 
-    // --- ESTA ES LA LÍNEA QUE TE FALTA ---
-    // Le dice a Laravel: "Confía en mí, deja pasar todos los datos (latitud, longitud, precio, etc)"
-    protected $guarded = [];
+    // --- CAMBIO IMPORTANTE ---
+    // En lugar de "dejar pasar todo", listamos explícitamente
+    // qué columnas permitimos llenar. Esto es más seguro.
+    protected $fillable = [
+        'passenger_id',
+        'driver_id',
+        'origin',
+        'destination',
+        
+        // 🔥 AQUÍ AGREGAMOS LAS COORDENADAS GPS NUEVAS
+        'origin_lat',
+        'origin_lng',
+        'destination_lat',
+        'destination_lng',
+
+        'status',
+        'price',
+        'payment_method',
+    ];
 
     // Relación con el Pasajero
     public function passenger()
