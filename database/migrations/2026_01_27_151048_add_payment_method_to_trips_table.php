@@ -12,7 +12,8 @@ return new class extends Migration
     public function up(): void
     {
         Schema::table('trips', function (Blueprint $table) {
-            //
+            // Agregamos la columna 'payment_method' con valor por defecto
+            $table->string('payment_method')->default('Efectivo')->after('price');
         });
     }
 
@@ -22,7 +23,8 @@ return new class extends Migration
     public function down(): void
     {
         Schema::table('trips', function (Blueprint $table) {
-            //
+            // Si revertimos, borramos la columna
+            $table->dropColumn('payment_method');
         });
     }
 };

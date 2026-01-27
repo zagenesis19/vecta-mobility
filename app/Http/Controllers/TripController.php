@@ -33,13 +33,14 @@ class TripController extends Controller
         return Inertia::render('Trips/Create');
     }
 
-    // 2. GUARDAR EL VIAJE (POST) - AHORA CON PRECIO REAL 💸
+    // 2. GUARDAR EL VIAJE (POST) - AHORA CON PRECIOS REALISTAS 💸
     public function store(Request $request)
     {
-        // A. Validar que no envíen campos vacíos y que vengan las COORDENADAS
+        // A. Validar que no envíen campos vacíos
         $request->validate([
             'origin' => 'required|string|max:255',
             'destination' => 'required|string|max:255',
+            'payment_method' => 'required|string', 
             // Validamos que el frontend nos mande los números del GPS
             'origin_lat' => 'required|numeric',
             'origin_lng' => 'required|numeric',
@@ -47,23 +48,29 @@ class TripController extends Controller
             'destination_lng' => 'required|numeric',
         ]);
 
-        // B. Calcular la distancia usando la función matemática
-        $distanceKm = $this->calculateDistance(
+        // B. Calcular la distancia "Aérea" (Línea recta)
+        $rawDistance = $this->calculateDistance(
             $request->origin_lat,
             $request->origin_lng,
             $request->destination_lat,
             $request->destination_lng
         );
 
-        // C. Definir Tarifas (Configuración estilo Ridery)
-        $baseFare = 1.00;      // Tarifa mínima por arrancar ($1.00)
-        $costPerKm = 0.50;     // Costo por cada Kilómetro ($0.50)
+        // --- 🔧 CÁLCULO DE PRECIO MEJORADO ---
         
-        // Fórmula: Base + (Km * Costo)
-        $estimatedPrice = $baseFare + ($distanceKm * $costPerKm);
+        // 1. Factor de Carretera:
+        // Como las calles no son rectas, aumentamos un 40% la distancia
+        $roadDistance = $rawDistance * 1.4; 
+
+        // 2. Tarifas Actualizadas
+        $baseFare = 3.00;      // Tarifa mínima por arrancar (Antes $1.00)
+        $costPerKm = 0.90;     // Costo por Km (Antes $0.50)
         
-        // Redondear a 2 decimales y asegurar que nunca cueste menos de $1.50
-        $finalPrice = max(1.50, round($estimatedPrice, 2));
+        // Fórmula: Base + (DistanciaReal * Costo)
+        $estimatedPrice = $baseFare + ($roadDistance * $costPerKm);
+        
+        // 3. Precio Final (Mínimo $5.00)
+        $finalPrice = max(5.00, round($estimatedPrice, 2));
 
         // D. Crear el viaje en la Base de Datos
         Trip::create([
@@ -71,7 +78,8 @@ class TripController extends Controller
             'origin' => $request->origin,
             'destination' => $request->destination,
             'status' => 'pending',        
-            'price' => $finalPrice,       // 🔥 AQUÍ GUARDAMOS EL PRECIO REAL
+            'price' => $finalPrice,       // PRECIO ADJUSTADO
+            'payment_method' => $request->payment_method, 
             'driver_id' => null,          
         ]);
 
