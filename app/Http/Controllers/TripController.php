@@ -6,101 +6,55 @@ use App\Models\Trip;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Redirect;
 
 class TripController extends Controller
 {
-    // --- 🧠 CEREBRO MATEMÁTICO (Fórmula de Haversine) ---
-    // Esta función calcula la distancia exacta en Km entre dos coordenadas
-    private function calculateDistance($lat1, $lon1, $lat2, $lon2)
-    {
-        $earthRadius = 6371; // Radio de la Tierra en km
-
-        $dLat = deg2rad($lat2 - $lat1);
-        $dLon = deg2rad($lon2 - $lon1);
-
-        $a = sin($dLat / 2) * sin($dLat / 2) +
-             cos(deg2rad($lat1)) * cos(deg2rad($lat2)) *
-             sin($dLon / 2) * sin($dLon / 2);
-
-        $c = 2 * atan2(sqrt($a), sqrt(1 - $a));
-
-        return $earthRadius * $c; // Devuelve distancia en KM
-    }
-
-    // 1. MOSTRAR EL FORMULARIO (GET)
     public function create()
     {
         return Inertia::render('Trips/Create');
     }
 
-    // 2. GUARDAR EL VIAJE (POST) - AHORA CON PRECIO REAL 💸
     public function store(Request $request)
     {
-        // A. Validar que no envíen campos vacíos y que vengan las COORDENADAS
+        // Validamos incluyendo el método de pago
         $request->validate([
-            'origin' => 'required|string|max:255',
-            'destination' => 'required|string|max:255',
-            // Validamos que el frontend nos mande los números del GPS
+            'origin' => 'required|string',
             'origin_lat' => 'required|numeric',
             'origin_lng' => 'required|numeric',
+            'destination' => 'required|string',
             'destination_lat' => 'required|numeric',
             'destination_lng' => 'required|numeric',
+            'distance' => 'nullable|numeric',
+            'amount' => 'nullable|numeric',
+            'payment_method' => 'required|string|in:cash,pago_movil' // <-- Importante para Fase 4
         ]);
 
-        // B. Calcular la distancia usando la función matemática
-        $distanceKm = $this->calculateDistance(
-            $request->origin_lat,
-            $request->origin_lng,
-            $request->destination_lat,
-            $request->destination_lng
-        );
-
-        // C. Definir Tarifas (Configuración estilo Ridery)
-        $baseFare = 1.00;      // Tarifa mínima por arrancar ($1.00)
-        $costPerKm = 0.50;     // Costo por cada Kilómetro ($0.50)
-        
-        // Fórmula: Base + (Km * Costo)
-        $estimatedPrice = $baseFare + ($distanceKm * $costPerKm);
-        
-        // Redondear a 2 decimales y asegurar que nunca cueste menos de $1.50
-        $finalPrice = max(1.50, round($estimatedPrice, 2));
-
-        // D. Crear el viaje en la Base de Datos
-       // ... (cálculos de distancia y precio anteriores) ...
-
-        // D. Crear el viaje en la Base de Datos
         Trip::create([
-            'passenger_id' => Auth::id(), 
+            'passenger_id' => Auth::id(),
             'origin' => $request->origin,
-            'destination' => $request->destination,
-            
-            // 🔥 GUARDAMOS LAS COORDENADAS GPS (NUEVO)
             'origin_lat' => $request->origin_lat,
             'origin_lng' => $request->origin_lng,
+            'destination' => $request->destination,
             'destination_lat' => $request->destination_lat,
             'destination_lng' => $request->destination_lng,
-
-            'status' => 'pending',        
-            'price' => $finalPrice,
+            'distance' => $request->distance ?? 0,
+            'price' => $request->amount ?? 5.00, // Precio base o calculado
             'payment_method' => $request->payment_method,
-            'driver_id' => null,          
+            'status' => 'pending',
         ]);
 
-        // ... (retorno redirect) ...
-
-        // E. Redirigir al Dashboard
-        return redirect()->route('dashboard')->with('message', '¡Solicitud enviada! Precio estimado: $' . $finalPrice);
+        return redirect()->route('dashboard')->with('success', '¡Viaje solicitado con éxito!');
     }
 
-    // --- FUNCIONES PARA EL CONDUCTOR (INTACTAS) ---
-
+    // --- FASE 3: ACEPTAR Y GESTIONAR VIAJE ---
+    
     public function accept($id)
     {
         $trip = Trip::findOrFail($id);
         
-        // Solo aceptar si está pendiente
         if ($trip->status !== 'pending') {
-            return back()->withErrors(['error' => 'Este viaje ya no está disponible.']);
+            return Redirect::back()->with('error', 'Este viaje ya no está disponible.');
         }
 
         $trip->update([
@@ -108,45 +62,52 @@ class TripController extends Controller
             'status' => 'accepted'
         ]);
 
-        return back();
+        return Redirect::back()->with('success', 'Has aceptado el viaje. ¡Ve a recoger al pasajero!');
     }
 
     public function startTrip($id)
     {
         $trip = Trip::findOrFail($id);
-        if ($trip->driver_id !== Auth::id()) abort(403);
+        
+        // Validación de seguridad: Solo el chofer asignado puede iniciar
+        if (Auth::id() !== $trip->driver_id) {
+            return back()->with('error', 'No estás autorizado.');
+        }
 
         $trip->update(['status' => 'in_progress']);
-        return back();
+        return Redirect::back()->with('success', 'Viaje iniciado. ¡Conduce con cuidado!');
     }
+
+    // --- FASE 4: FINALIZACIÓN Y PAGO ---
 
     public function finishTrip($id)
     {
         $trip = Trip::findOrFail($id);
-        if ($trip->driver_id !== Auth::id()) abort(403);
+
+        if (Auth::id() !== $trip->driver_id) {
+            return back()->with('error', 'No estás autorizado.');
+        }
 
         $trip->update(['status' => 'completed']);
-        return back();
+        
+        // Aquí Argenis disparaba el modal de cobro en el front
+        return Redirect::back()->with('success', 'Viaje finalizado. Procede al cobro.');
     }
 
-    // --- FUNCIÓN: CANCELAR / LIBERAR VIAJE (INTACTA) ---
     public function cancel($id)
     {
         $trip = Trip::findOrFail($id);
         $user = Auth::user();
 
-        // CASO A: Si el PASAJERO cancela -> Se borra el viaje
         if ($user->role === 'passenger' && $trip->passenger_id === $user->id) {
             $trip->delete();
+            return back()->with('success', 'Viaje eliminado.');
         }
-        // CASO B: Si el CONDUCTOR cancela -> Libera el viaje para otro
         elseif ($user->role === 'driver' && $trip->driver_id === $user->id) {
-            $trip->update([
-                'driver_id' => null,
-                'status' => 'pending'
-            ]);
+            $trip->update(['driver_id' => null, 'status' => 'pending']);
+            return back()->with('success', 'Viaje liberado.');
         }
-
-        return back();
+        
+        return back()->with('error', 'No se pudo cancelar el viaje.');
     }
 }
