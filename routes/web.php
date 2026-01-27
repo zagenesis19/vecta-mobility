@@ -6,7 +6,7 @@ use App\Http\Controllers\AdminController;
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
-use App\Models\User; // Importamos el modelo User para las consultas
+use App\Models\User;
 
 /*
 |--------------------------------------------------------------------------
@@ -91,22 +91,23 @@ Route::get('/dashboard', function () {
         'userRole' => 'passenger'
     ]);
 
-})->middleware(['auth', 'verified'])->name('dashboard');
+})->middleware(['auth'])->name('dashboard'); // <--- AQUÍ HICE EL CAMBIO (Quité 'verified')
 
 // 3. GRUPO DE RUTAS AUTENTICADAS
 Route::middleware('auth')->group(function () {
+    
     // --- PERFIL ---
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
 
+    // 🔥 RUTAS DE IDENTIDAD
+    Route::post('/profile/identity', [ProfileController::class, 'updateIdentity'])->name('profile.identity.update');
+    
     // --- GESTIÓN DE VIAJES (PASAJERO) ---
     Route::get('/request-ride', [TripController::class, 'create'])->name('trips.create');
     Route::post('/request-ride', [TripController::class, 'store'])->name('trips.store');
-    
-    // 🔥 NUEVA RUTA PARA CANCELAR VIAJE
     Route::delete('/trip/{trip}/cancel', [TripController::class, 'cancel'])->name('trip.cancel');
-
     Route::post('/trip/{trip}/status', [TripController::class, 'updateStatus'])->name('trip.updateStatus');
 
     // --- GESTIÓN DE VIAJES (CONDUCTOR) ---
@@ -115,15 +116,17 @@ Route::middleware('auth')->group(function () {
     Route::put('/trip/{id}/finish', [TripController::class, 'finishTrip'])->name('trip.finish');
 });
 
-// 4. RUTAS DE ADMINISTRADOR (Gestión de Choferes)
-Route::middleware(['auth'])->group(function () {
-    Route::get('/admin/drivers', [AdminController::class, 'index'])->name('admin.drivers');
+// 4. RUTAS DE ADMINISTRADOR
+Route::middleware(['auth'])->prefix('admin')->group(function () {
+    // Verificaciones de Identidad
+    Route::get('/verifications', [AdminController::class, 'verifications'])->name('admin.verifications');
+    Route::post('/verifications/{user}/approve', [AdminController::class, 'approveIdentity'])->name('admin.verifications.approve');
+    Route::post('/verifications/{user}/reject', [AdminController::class, 'rejectIdentity'])->name('admin.verifications.reject');
     
-    // Aprobar Conductor
-    Route::put('/admin/drivers/{id}/approve', [AdminController::class, 'approve'])->name('admin.approve');
-    
-    // Rechazar Conductor
-    Route::delete('/admin/drivers/{id}/reject', [AdminController::class, 'reject'])->name('admin.reject');
+    // Gestión de Conductores
+    Route::get('/drivers', [AdminController::class, 'index'])->name('admin.drivers');
+    Route::put('/drivers/{id}/approve', [AdminController::class, 'approve'])->name('admin.approve');
+    Route::delete('/drivers/{id}/reject', [AdminController::class, 'reject'])->name('admin.reject');
 });
 
 require __DIR__.'/auth.php';

@@ -32,6 +32,13 @@ const showingNavigationDropdown = ref(false);
                                 <NavLink :href="route('dashboard')" :active="route().current('dashboard')">
                                     Dashboard
                                 </NavLink>
+                                <NavLink 
+                                        v-if="$page.props.auth.user.role === 'admin'"
+                                        :href="route('admin.verifications')" 
+                                        :active="route().current('admin.verifications')"
+                                    >
+                                        Verificaciones 🛡️
+                                    </NavLink>
                             </div>
                         </div>
 
@@ -41,26 +48,39 @@ const showingNavigationDropdown = ref(false);
                                 <Dropdown align="right" width="48">
                                     <template #trigger>
                                         <span class="inline-flex rounded-md">
-                                            <button
-                                                type="button"
-                                                class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150"
-                                            >
-                                                {{ $page.props.auth.user.name }}
+    <button
+        type="button"
+        class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150"
+    >
+        <div v-if="$page.props.auth.user.profile_photo_path" class="mr-2">
+            <img 
+                :src="'/storage/' + $page.props.auth.user.profile_photo_path" 
+                class="h-8 w-8 rounded-full object-cover border border-gray-300" 
+                alt="Avatar"
+            />
+        </div>
+        <div v-else class="mr-2">
+             <svg class="h-8 w-8 text-gray-400" fill="currentColor" viewBox="0 0 24 24">
+                 <path d="M24 20.993V24H0v-2.996A14.977 14.977 0 0112.004 15c4.904 0 9.26 2.354 11.996 5.993zM16.002 8.999a4 4 0 11-8 0 4 4 0 018 0z" />
+             </svg>
+        </div>
 
-                                                <svg
-                                                    class="ms-2 -me-0.5 h-4 w-4"
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 20 20"
-                                                    fill="currentColor"
-                                                >
-                                                    <path
-                                                        fill-rule="evenodd"
-                                                        d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
-                                                        clip-rule="evenodd"
-                                                    />
-                                                </svg>
-                                            </button>
-                                        </span>
+        {{ $page.props.auth.user.name }}
+
+        <svg
+            class="ms-2 -me-0.5 h-4 w-4"
+            xmlns="http://www.w3.org/2000/svg"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+        >
+            <path
+                fill-rule="evenodd"
+                d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"
+                clip-rule="evenodd"
+            />
+        </svg>
+    </button>
+</span>
                                     </template>
 
                                     <template #content>

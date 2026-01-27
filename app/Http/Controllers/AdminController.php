@@ -8,31 +8,50 @@ use Inertia\Inertia;
 
 class AdminController extends Controller
 {
-    // Muestra la lista de conductores pendientes
-    public function index()
+    /**
+     * Muestra la lista de usuarios pendientes de verificación.
+     */
+    public function verifications()
     {
-        // Buscamos usuarios que sean 'driver' Y que NO estén aprobados
-        $pendingDrivers = User::where('role', 'driver')
-            ->where('is_approved', false)
-            ->latest()
-            ->get();
+        // Traemos solo los que están "pending" (o podrías traer todos para historial)
+        $users = User::where('identity_status', 'pending')
+                     ->orderBy('updated_at', 'asc') // Los más viejos primero
+                     ->get();
 
-        return Inertia::render('Admin/DriversList', [
-            'drivers' => $pendingDrivers
+        return Inertia::render('Admin/Verifications', [
+            'users' => $users
         ]);
     }
 
-    // Aprueba a un conductor
-    public function approve($id)
+    /**
+     * Aprobar identidad.
+     */
+    public function approveIdentity(User $user)
     {
-        $driver = User::findOrFail($id);
-        
-        // Cambiamos el switch a VERDADERO
-        $driver->update([
-            'is_approved' => true
+        $user->update([
+            'identity_status' => 'approved',
+            'identity_feedback' => null, // Limpiar feedback anterior si hubo
+            'is_approved' => true // (Opcional) Si esto también activa al chofer
         ]);
 
-        // Recargamos la página para ver que desaparece de la lista
-        return back();
+        return back()->with('success', 'Usuario verificado correctamente.');
+    }
+
+    /**
+     * Rechazar identidad con feedback.
+     */
+    public function rejectIdentity(Request $request, User $user)
+    {
+        $request->validate([
+            'reason' => 'required|string|max:255'
+        ]);
+
+        $user->update([
+            'identity_status' => 'rejected',
+            'identity_feedback' => $request->reason,
+            'is_approved' => false
+        ]);
+
+        return back()->with('success', 'Solicitud rechazada.');
     }
 }

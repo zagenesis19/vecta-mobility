@@ -1,0 +1,337 @@
+<script setup>
+import { useForm, usePage } from '@inertiajs/vue3';
+import { ref, computed, onMounted, watch } from 'vue';
+import InputLabel from '@/Components/InputLabel.vue';
+import TextInput from '@/Components/TextInput.vue';
+import PrimaryButton from '@/Components/PrimaryButton.vue';
+import SecondaryButton from '@/Components/SecondaryButton.vue';
+import InputError from '@/Components/InputError.vue';
+import CameraCapture from '@/Components/CameraCapture.vue';
+
+const user = usePage().props.auth.user;
+
+// ESTADOS
+const isPending = computed(() => user.identity_status === 'pending');
+const isApproved = computed(() => user.identity_status === 'approved');
+const isRejected = computed(() => user.identity_status === 'rejected');
+
+// BLOQUEOS LÓGICOS
+// Solo bloqueamos Cédula, Fechas y Foto Documento si ya está en revisión o aprobado.
+const isIdentityLocked = computed(() => isPending.value || isApproved.value);
+// El teléfono y el Avatar SIEMPRE son editables (salvo cuando se está guardando).
+const isPhoneLocked = computed(() => form.processing);
+
+// MODOS DE EDICIÓN
+const editingProfilePhoto = ref(false);
+const editingIdCard = ref(false);
+const editingBiometric = ref(false);
+
+// VARIABLES
+const expiryMonth = ref('');
+const expiryYear = ref('');
+const phoneCode = ref('+58'); 
+const phoneNumber = ref('');
+
+// PAÍSES
+const countryCodes = [
+    { code: '+58', flag: '🇻🇪', name: 'Venezuela' },
+    { code: '+57', flag: '🇨🇴', name: 'Colombia' },
+    { code: '+1',  flag: '🇺🇸', name: 'EE.UU' },
+    { code: '+34', flag: '🇪🇸', name: 'España' },
+];
+
+const form = useForm({
+    phone_number: user.phone_number || '',
+    id_card_number: user.id_card_number || '',
+    birth_date: user.birth_date ? user.birth_date.substring(0, 10) : '',
+    id_card_expires_at: user.id_card_expires_at || '',
+    id_card_photo: null,
+    profile_photo: null,
+    biometric_photo: null,
+});
+
+onMounted(() => {
+    // 1. Separar Fecha
+    if (user.id_card_expires_at) {
+        const parts = user.id_card_expires_at.split('-');
+        if (parts.length >= 2) {
+            expiryYear.value = parts[0];
+            expiryMonth.value = parts[1];
+        }
+    }
+    // 2. Separar Teléfono
+    if (user.phone_number) {
+        const found = countryCodes.find(c => user.phone_number.startsWith(c.code));
+        if (found) {
+            phoneCode.value = found.code;
+            phoneNumber.value = user.phone_number.replace(found.code, '').trim();
+        } else {
+            phoneNumber.value = user.phone_number;
+        }
+    }
+});
+
+// WATCHERS (Lógica de limpieza)
+watch([phoneCode, phoneNumber], () => {
+    let raw = phoneNumber.value.replace(/\D/g, ''); 
+    if (phoneCode.value === '+58' && raw.startsWith('0')) {
+        raw = raw.substring(1);
+    }
+    phoneNumber.value = raw; 
+    form.phone_number = raw ? `${phoneCode.value} ${raw}` : '';
+});
+
+watch(() => form.id_card_number, (val) => {
+    if (val) form.id_card_number = val.replace(/[^0-9]/g, '');
+});
+
+watch([expiryMonth, expiryYear], () => {
+    if (expiryMonth.value && expiryYear.value) {
+        form.id_card_expires_at = `${expiryYear.value}-${expiryMonth.value}-01`;
+    } else {
+        form.id_card_expires_at = '';
+    }
+});
+
+const handleProfilePhotoChange = (e) => form.profile_photo = e.target.files[0];
+const handleIdCardPhotoChange = (e) => form.id_card_photo = e.target.files[0];
+const handleBiometricCapture = (base64) => form.biometric_photo = base64;
+
+const isIdCardExpired = computed(() => {
+    if (!expiryMonth.value || !expiryYear.value) return true;
+    const today = new Date();
+    const currentYear = today.getFullYear();
+    const currentMonth = today.getMonth() + 1;
+    const expY = parseInt(expiryYear.value);
+    const expM = parseInt(expiryMonth.value);
+    if (currentYear > expY) return true;
+    if (currentYear === expY && currentMonth > expM) return true;
+    return false;
+});
+
+const submit = () => {
+    if (phoneNumber.value.length < 7) {
+        alert('El número de teléfono parece incompleto.');
+        return;
+    }
+    // Solo validamos Cédula si NO está bloqueada (si está bloqueada, ya es correcta)
+    if (!isIdentityLocked.value && form.id_card_number.length < 6) {
+        alert('El número de cédula parece incompleto.');
+        return;
+    }
+
+    form.post(route('profile.identity.update'), {
+        preserveScroll: true,
+        onSuccess: () => {
+            // Reseteamos inputs de archivos visualmente
+            form.reset('profile_photo', 'id_card_photo', 'biometric_photo');
+            editingProfilePhoto.value = false;
+            editingIdCard.value = false;
+            editingBiometric.value = false;
+        },
+    });
+};
+</script>
+
+<template>
+    <section class="space-y-6 w-full">
+        <header class="border-b pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+                <h2 class="text-xl font-bold text-gray-900">Identidad y Seguridad 🛡️</h2>
+                <p class="mt-1 text-sm text-gray-600">Mantén tus datos actualizados para garantizar la seguridad de tu cuenta.</p>
+            </div>
+            
+            <div class="shrink-0">
+                <div v-if="isApproved" class="px-4 py-2 bg-green-100 text-green-800 rounded-full font-bold border border-green-200 flex items-center shadow-sm">
+                    ✅ Identidad Verificada
+                </div>
+                <div v-else-if="isPending" class="px-4 py-2 bg-yellow-100 text-yellow-800 rounded-full font-bold border border-yellow-200 flex items-center shadow-sm">
+                    ⏳ Verificación en Proceso
+                </div>
+                <div v-else-if="isRejected" class="px-4 py-2 bg-red-100 text-red-800 rounded-full font-bold border border-red-200 flex items-center shadow-sm">
+                    ❌ Rechazado: {{ user.identity_feedback }}
+                </div>
+            </div>
+        </header>
+
+        <form @submit.prevent="submit" class="space-y-8">
+            
+            <div class="bg-white p-6 rounded-xl border shadow-sm">
+                <h3 class="font-bold text-lg text-indigo-900 mb-6 flex items-center gap-2">
+                    🪪 Datos Personales
+                    <span v-if="isIdentityLocked" class="text-xs font-normal text-gray-400 bg-gray-100 px-2 py-1 rounded">
+                        Algunos campos están protegidos
+                    </span>
+                </h3>
+
+                <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
+                    
+                    <div class="md:col-span-7 space-y-6">
+                        
+                        <div>
+                            <InputLabel value="Número de Teléfono (WhatsApp)" class="mb-1" />
+                            <div class="flex gap-3">
+                                <select v-model="phoneCode" :disabled="isPhoneLocked" class="w-1/3 border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500 bg-white">
+                                    <option v-for="country in countryCodes" :key="country.code" :value="country.code">
+                                        {{ country.flag }} {{ country.code }}
+                                    </option>
+                                </select>
+                                <TextInput 
+                                    v-model="phoneNumber" 
+                                    type="tel" 
+                                    class="w-2/3" 
+                                    :disabled="isPhoneLocked" 
+                                    placeholder="4121234567"
+                                    maxlength="11" 
+                                />
+                            </div>
+                            <p class="text-xs text-gray-500 mt-1">Este número se usará para contactarte.</p>
+                            <InputError :message="form.errors.phone_number" class="mt-1" />
+                        </div>
+
+                        <div>
+                            <InputLabel value="Número de Cédula" class="mb-1" />
+                            <TextInput 
+                                v-model="form.id_card_number" 
+                                type="text" 
+                                class="w-full bg-gray-50" 
+                                :class="{'opacity-75 cursor-not-allowed': isIdentityLocked}"
+                                :disabled="isIdentityLocked" 
+                                placeholder="Ej: 12345678"
+                            />
+                            <InputError :message="form.errors.id_card_number" class="mt-1" />
+                        </div>
+
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                                <InputLabel value="Fecha de Nacimiento" class="mb-1" />
+                                <TextInput 
+                                    v-model="form.birth_date" 
+                                    type="date" 
+                                    class="w-full" 
+                                    :class="{'bg-gray-100 text-gray-500 cursor-not-allowed': isIdentityLocked}"
+                                    :disabled="isIdentityLocked" 
+                                />
+                            </div>
+                            
+                            <div>
+                                <InputLabel value="Vencimiento Cédula" class="mb-1" />
+                                <div class="flex gap-2">
+                                    <select 
+                                        v-model="expiryMonth" 
+                                        :disabled="isIdentityLocked" 
+                                        class="w-1/2 border-gray-300 rounded-lg shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                                        :class="{'bg-gray-100 text-gray-500 cursor-not-allowed': isIdentityLocked}"
+                                    >
+                                        <option value="" disabled>Mes</option>
+                                        <option value="01">Ene (01)</option><option value="02">Feb (02)</option><option value="03">Mar (03)</option>
+                                        <option value="04">Abr (04)</option><option value="05">May (05)</option><option value="06">Jun (06)</option>
+                                        <option value="07">Jul (07)</option><option value="08">Ago (08)</option><option value="09">Sep (09)</option>
+                                        <option value="10">Oct (10)</option><option value="11">Nov (11)</option><option value="12">Dic (12)</option>
+                                    </select>
+                                    <TextInput 
+                                        v-model="expiryYear" 
+                                        type="number" 
+                                        placeholder="Año" 
+                                        class="w-1/2" 
+                                        :disabled="isIdentityLocked" 
+                                        :class="{'bg-gray-100 text-gray-500 cursor-not-allowed': isIdentityLocked}"
+                                        min="2024" max="2040" 
+                                    />
+                                </div>
+                                <InputError :message="form.errors.id_card_expires_at" class="mt-1" />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="md:col-span-5 flex flex-col">
+                        <InputLabel value="Foto del Documento" class="mb-2" />
+                        <div class="flex-1 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 flex flex-col items-center justify-center p-4 min-h-[200px]">
+                            
+                            <div v-if="user.id_card_photo_path && !editingIdCard" class="text-center w-full">
+                                <img :src="'/storage/' + user.id_card_photo_path" class="h-32 object-contain mx-auto rounded shadow-sm mb-3 hover:scale-105 transition">
+                                <p v-if="!isIdCardExpired" class="text-xs text-green-600 font-bold mb-2 bg-green-50 px-2 py-1 rounded inline-block">Documento Vigente</p>
+                                <p v-else class="text-xs text-red-600 font-bold mb-2 bg-red-50 px-2 py-1 rounded inline-block">Documento Vencido</p>
+                                
+                                <div v-if="!isIdentityLocked" class="mt-2">
+                                    <SecondaryButton @click="editingIdCard = true" size="sm">Cambiar Imagen</SecondaryButton>
+                                </div>
+                            </div>
+                            
+                            <div v-else class="w-full text-center">
+                                <div v-if="isIdentityLocked" class="text-gray-400 italic text-sm">
+                                    <span class="text-2xl block mb-2">🔒</span>
+                                    Imagen protegida por verificación
+                                </div>
+                                <div v-else>
+                                    <svg class="mx-auto h-10 w-10 text-gray-400 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
+                                    <p class="text-xs text-gray-500 mb-3">Sube una foto clara</p>
+                                    <input type="file" @change="handleIdCardPhotoChange" class="block w-full text-xs text-gray-500 file:mx-auto file:block file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 cursor-pointer" accept="image/*" />
+                                    <SecondaryButton v-if="editingIdCard" @click="editingIdCard = false" class="mt-4">Cancelar</SecondaryButton>
+                                </div>
+                            </div>
+                        </div>
+                        <InputError :message="form.errors.id_card_photo" class="mt-1" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                
+                <div class="bg-white p-6 rounded-xl border shadow-sm">
+                    <h3 class="font-bold text-gray-900 mb-4 flex items-center">
+                        📸 Verificación Facial
+                        <span v-if="isIdentityLocked" class="ml-2 text-xs text-gray-400">🔒</span>
+                    </h3>
+                    <div class="text-center h-full flex flex-col justify-center">
+                        <div v-if="user.biometric_photo_path && !editingBiometric">
+                            <div class="inline-flex items-center px-4 py-2 bg-green-50 text-green-700 rounded-full mb-4 border border-green-200 text-sm font-bold">
+                                Biometría Capturada
+                            </div>
+                            <div v-if="!isIdentityLocked">
+                                <SecondaryButton @click="editingBiometric = true">Repetir Selfie</SecondaryButton>
+                            </div>
+                        </div>
+                        <div v-else>
+                            <div v-if="isIdentityLocked" class="text-gray-400 italic text-sm">Verificación en proceso.</div>
+                            <CameraCapture v-else @photo-captured="handleBiometricCapture" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-6 rounded-xl border shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-gray-900 mb-2">👤 Foto de Perfil</h3>
+                        <p class="text-xs text-gray-500 mb-4">Esta es la imagen pública que verán los conductores.</p>
+                    </div>
+                    
+                    <div class="flex items-center gap-6">
+                        <div class="shrink-0">
+                            <img v-if="user.profile_photo_path && !editingProfilePhoto" :src="'/storage/' + user.profile_photo_path" class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md">
+                            <div v-else class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center text-3xl shadow-inner text-gray-400">👤</div>
+                        </div>
+                        <div class="w-full">
+                            <div v-if="editingProfilePhoto || !user.profile_photo_path">
+                                <input type="file" @change="handleProfilePhotoChange" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" accept="image/*" />
+                                <SecondaryButton v-if="editingProfilePhoto" @click="editingProfilePhoto = false" size="sm" class="mt-2">Cancelar</SecondaryButton>
+                            </div>
+                            <div v-else>
+                                <SecondaryButton @click="editingProfilePhoto = true">Cambiar Foto de Perfil</SecondaryButton>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4 border-t">
+                <Transition enter-active-class="transition ease-in-out" enter-from-class="opacity-0" leave-active-class="transition ease-in-out" leave-to-class="opacity-0">
+                    <p v-if="form.recentlySuccessful" class="text-sm text-green-600 font-bold">✅ Información guardada correctamente.</p>
+                </Transition>
+                
+                <PrimaryButton :disabled="form.processing" class="h-12 px-8 text-lg w-full sm:w-auto justify-center shadow-lg hover:shadow-xl transition-all">
+                    Guardar Cambios
+                </PrimaryButton>
+            </div>
+        </form>
+    </section>
+</template>
