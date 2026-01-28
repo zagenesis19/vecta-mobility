@@ -13,6 +13,7 @@ const props = defineProps({
     pendingDrivers: { type: Array, default: () => [] },
     trips: { type: Array, default: () => [] }, // Historial del pasajero
     userRole: String,
+    currentTrip: { type: Object, default: null }, // 🔥 Recibimos el viaje activo desde el Controller
     isApproved: { type: Boolean, default: false } 
 });
 
@@ -35,12 +36,13 @@ const completedTrip = ref(null);
 let debounceTimeout;
 
 // --- BUSCAR VIAJE ACTIVO ---
-// Buscamos si hay un viaje que no esté cancelado.
-const currentTrip = computed(() => {
-    return props.trips.find(t => ['pending', 'accepted', 'in_progress', 'completed'].includes(t.status));
+// Usamos el prop 'currentTrip' que nos manda Laravel, o buscamos en el array por seguridad
+const activeTrip = computed(() => {
+    return props.currentTrip || props.trips.find(t => ['pending', 'accepted', 'in_progress', 'completed'].includes(t.status));
 });
 
 // --- FORMULARIO ---
+// Mantenemos 'origin' y 'destination' porque el Controlador espera esos nombres para validar
 const form = useForm({
     origin: '📍 Localizando...',
     origin_lat: null,
@@ -48,8 +50,8 @@ const form = useForm({
     destination: '',
     destination_lat: null,
     destination_lng: null,
-    payment_method: 'Efectivo', // Default para la BD
-    price: 5.00 // Precio base estimado
+    payment_method: 'Efectivo', 
+    price: 5.00 
 });
 
 // --- 1. GEOLOCALIZACIÓN AUTOMÁTICA (GPS) ---
@@ -58,7 +60,6 @@ const getAddressFromCoords = async (lat, lng) => {
         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
         const data = await response.json();
         if (data && data.display_name) {
-            // Tomamos solo las primeras 3 partes de la dirección para que no sea gigante
             const shortAddress = data.display_name.split(',').slice(0, 3).join(',');
             form.origin = "📍 " + shortAddress;
         }
@@ -68,7 +69,6 @@ const getAddressFromCoords = async (lat, lng) => {
 };
 
 onMounted(() => {
-    // Retraso ligero para asegurar que el contenedor del mapa exista
     setTimeout(() => { mapReady.value = true; }, 100);
 
     if (navigator.geolocation) {
@@ -77,11 +77,9 @@ onMounted(() => {
                 const lat = position.coords.latitude;
                 const lng = position.coords.longitude;
                 
-                // Centrar mapa y guardar datos
                 center.value = [lat, lng];
                 userLocation.value = [lat, lng];
                 
-                // Llenar formulario
                 form.origin_lat = lat;
                 form.origin_lng = lng;
                 getAddressFromCoords(lat, lng);
@@ -91,7 +89,7 @@ onMounted(() => {
     }
 });
 
-// --- 2. BUSCADOR INTELIGENTE (Debounce) ---
+// --- 2. BUSCADOR INTELIGENTE ---
 const handleInput = (event) => {
     const query = event.target.value;
     form.destination = query;
@@ -104,7 +102,6 @@ const handleInput = (event) => {
         }
         isSearching.value = true;
         try {
-            // Buscamos solo en Venezuela (countrycodes=ve)
             const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ve&limit=5`);
             const data = await response.json();
             searchResults.value = data;
@@ -118,18 +115,17 @@ const handleInput = (event) => {
 
 // --- 3. SELECCIONAR DESTINO ---
 const selectLocation = (place) => {
-    form.destination = place.display_name.split(',')[0]; // Nombre corto
+    form.destination = place.display_name.split(',')[0]; 
     const lat = parseFloat(place.lat);
     const lng = parseFloat(place.lon);
     
     form.destination_lat = lat;
     form.destination_lng = lng;
     
-    // Movemos el mapa para mostrar el destino
     destinationLocation.value = [lat, lng];
     center.value = [lat, lng];
     zoom.value = 16;
-    searchResults.value = []; // Limpiar lista
+    searchResults.value = []; 
 };
 
 // --- ACCIONES DEL PASAJERO ---
@@ -139,10 +135,11 @@ const submitTrip = () => {
         return;
     }
 
+    // Enviamos 'origin' y 'destination' tal cual, el controlador los mapeará a 'origin_address'
     form.post(route('trips.store'), {
         onSuccess: () => {
             form.reset();
-            hideCompletedTrip.value = false; // Mostrar la tarjeta del nuevo viaje
+            hideCompletedTrip.value = false; 
         },
     });
 };
@@ -154,11 +151,10 @@ const cancelTrip = (id) => {
 };
 
 const startNewTrip = () => {
-    hideCompletedTrip.value = true; // Ocultamos la tarjeta de "Completado"
+    hideCompletedTrip.value = true; 
     form.reset();
     form.origin = "📍 Re-localizando...";
     
-    // Volvemos a ubicar al usuario
     if (userLocation.value) {
         form.origin_lat = userLocation.value[0];
         form.origin_lng = userLocation.value[1];
@@ -264,8 +260,8 @@ const statusColor = (status) => {
                                 <div class="flex justify-between items-start mb-4">
                                     <div>
                                         <h4 class="font-bold text-lg text-gray-800">Pasajero #{{ trip.passenger_id }}</h4>
-                                        <p class="text-sm text-gray-500">📍 {{ trip.origin }}</p>
-                                        <p class="text-sm text-gray-900 font-bold">🏁 {{ trip.destination }}</p>
+                                        <p class="text-sm text-gray-500">📍 {{ trip.origin_address }}</p>
+                                        <p class="text-sm text-gray-900 font-bold">🏁 {{ trip.destination_address }}</p>
                                     </div>
                                     <div class="text-right">
                                         <span class="block text-2xl font-bold text-green-600">${{ trip.price }}</span>
@@ -312,11 +308,11 @@ const statusColor = (status) => {
                                     <div class="p-5 space-y-4">
                                         <div>
                                             <p class="text-xs text-gray-400 uppercase">Recoger en</p>
-                                            <p class="font-bold text-gray-800 truncate">{{ trip.origin }}</p>
+                                            <p class="font-bold text-gray-800 truncate">{{ trip.origin_address }}</p>
                                         </div>
                                         <div>
                                             <p class="text-xs text-gray-400 uppercase">Destino</p>
-                                            <p class="font-bold text-gray-800 truncate">{{ trip.destination }}</p>
+                                            <p class="font-bold text-gray-800 truncate">{{ trip.destination_address }}</p>
                                         </div>
                                         <button @click="acceptTrip(trip.id)" class="w-full py-3 bg-gray-100 text-gray-800 font-bold rounded-xl group-hover:bg-green-500 group-hover:text-white transition-colors">
                                             Aceptar Viaje ⚡
@@ -332,7 +328,7 @@ const statusColor = (status) => {
                     
                     <div class="lg:col-span-1 space-y-6">
                         
-                        <div v-if="!currentTrip || (currentTrip.status === 'completed' && hideCompletedTrip)" class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 relative z-10">
+                        <div v-if="!activeTrip || (activeTrip.status === 'completed' && hideCompletedTrip)" class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 relative z-10">
                             <h2 class="text-2xl font-bold mb-4 text-gray-800">Pedir un viaje</h2>
                             
                             <form @submit.prevent="submitTrip" class="space-y-4">
@@ -352,7 +348,6 @@ const statusColor = (status) => {
                                         class="w-full rounded-lg border-gray-300 mt-1 p-2 focus:ring-black focus:border-black" 
                                         autocomplete="off"
                                     >
-                                    
                                     <ul v-if="searchResults.length > 0" class="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-60 overflow-y-auto">
                                         <li v-for="place in searchResults" :key="place.place_id" @click="selectLocation(place)" class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b last:border-0 text-sm flex items-center gap-2">
                                             <span>🏁</span>
@@ -385,24 +380,24 @@ const statusColor = (status) => {
                              <div class="relative z-10">
                                 <div class="flex justify-between items-center mb-4">
                                     <h2 class="text-xl font-bold text-gray-800">Estado del Viaje</h2>
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase" :class="statusColor(currentTrip.status)">
-                                        {{ currentTrip.status }}
+                                    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase" :class="statusColor(activeTrip.status)">
+                                        {{ activeTrip.status }}
                                     </span>
                                 </div>
                                 <div class="space-y-4 mb-6">
-                                    <div class="flex items-start gap-3"><div class="w-3 h-3 bg-blue-500 rounded-full mt-1.5"></div><div><p class="text-xs text-gray-400">Origen</p><p class="font-bold text-gray-800">{{ currentTrip.origin }}</p></div></div>
-                                    <div class="flex items-start gap-3"><div class="w-3 h-3 bg-red-500 rounded-full mt-1.5"></div><div><p class="text-xs text-gray-400">Destino</p><p class="font-bold text-gray-800">{{ currentTrip.destination }}</p></div></div>
+                                    <div class="flex items-start gap-3"><div class="w-3 h-3 bg-blue-500 rounded-full mt-1.5"></div><div><p class="text-xs text-gray-400">Origen</p><p class="font-bold text-gray-800">{{ activeTrip.origin_address }}</p></div></div>
+                                    <div class="flex items-start gap-3"><div class="w-3 h-3 bg-red-500 rounded-full mt-1.5"></div><div><p class="text-xs text-gray-400">Destino</p><p class="font-bold text-gray-800">{{ activeTrip.destination_address }}</p></div></div>
                                 </div>
                                 <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
-                                    <div><p class="text-xs text-gray-500">Monto</p><p class="text-2xl font-black text-gray-900">${{ currentTrip.price }}</p></div>
-                                    <div class="text-right"><p class="text-xs text-gray-500">Pago</p><p class="font-bold text-gray-700">{{ currentTrip.payment_method }}</p></div>
+                                    <div><p class="text-xs text-gray-500">Monto</p><p class="text-2xl font-black text-gray-900">${{ activeTrip.price }}</p></div>
+                                    <div class="text-right"><p class="text-xs text-gray-500">Pago</p><p class="font-bold text-gray-700">{{ activeTrip.payment_method }}</p></div>
                                 </div>
 
-                                <button v-if="currentTrip.status === 'pending'" @click="cancelTrip(currentTrip.id)" class="w-full mt-4 text-red-500 text-sm font-bold hover:underline">
+                                <button v-if="activeTrip.status === 'pending'" @click="cancelTrip(activeTrip.id)" class="w-full mt-4 text-red-500 text-sm font-bold hover:underline">
                                     Cancelar solicitud
                                 </button>
 
-                                <div v-if="currentTrip.status === 'completed'" class="mt-6">
+                                <div v-if="activeTrip.status === 'completed'" class="mt-6">
                                     <button @click="startNewTrip" class="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg">
                                         Pedir nuevo viaje 🔄
                                     </button>
@@ -427,20 +422,20 @@ const statusColor = (status) => {
                                         <l-popup>👋 ¡Estás aquí!</l-popup>
                                     </l-marker>
 
-                                    <l-marker v-if="destinationLocation && (!currentTrip || hideCompletedTrip)" :lat-lng="destinationLocation">
+                                    <l-marker v-if="destinationLocation && (!activeTrip || hideCompletedTrip)" :lat-lng="destinationLocation">
                                         <l-popup>🏁 Destino: {{ form.destination }}</l-popup>
                                     </l-marker>
 
-                                    <div v-if="currentTrip && !hideCompletedTrip">
-                                        <l-marker v-if="currentTrip.destination_lat" :lat-lng="[parseFloat(currentTrip.destination_lat), parseFloat(currentTrip.destination_lng)]">
+                                    <div v-if="activeTrip && !hideCompletedTrip">
+                                        <l-marker v-if="activeTrip.destination_lat" :lat-lng="[parseFloat(activeTrip.destination_lat), parseFloat(activeTrip.destination_lng)]">
                                             <l-popup>🏁 Fin del Viaje</l-popup>
                                         </l-marker>
 
                                         <l-polyline 
-                                            v-if="currentTrip.origin_lat && currentTrip.destination_lat" 
+                                            v-if="activeTrip.origin_lat && activeTrip.destination_lat" 
                                             :lat-lngs="[
-                                                [parseFloat(currentTrip.origin_lat), parseFloat(currentTrip.origin_lng)], 
-                                                [parseFloat(currentTrip.destination_lat), parseFloat(currentTrip.destination_lng)]
+                                                [parseFloat(activeTrip.origin_lat), parseFloat(activeTrip.origin_lng)], 
+                                                [parseFloat(activeTrip.destination_lat), parseFloat(activeTrip.destination_lng)]
                                             ]" 
                                             color="#3B82F6" 
                                             :weight="5"

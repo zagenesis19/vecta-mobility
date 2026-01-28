@@ -7,14 +7,14 @@ use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 use App\Models\User;
+use App\Models\Trip; // Importamos el Modelo Trip
 
 /*
 |--------------------------------------------------------------------------
-| Rutas Web - Vecta Mobility (Fase 4 + Fase 5)
+| Rutas Web - Vecta Mobility (Versión Fusionada Definitiva)
 |--------------------------------------------------------------------------
 */
 
-// 1. PÁGINA DE BIENVENIDA
 Route::get('/', function () {
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
@@ -24,13 +24,13 @@ Route::get('/', function () {
     ]);
 });
 
-// 2. DASHBOARD INTELIGENTE
+// 2. DASHBOARD INTELIGENTE (CEREBRO MEJORADO 🧠)
 Route::get('/dashboard', function () {
     $user = auth()->user();
 
-    // A. ADMINISTRADOR
+    // A. ADMINISTRADOR (Tu lógica intacta)
     if ($user->role === 'admin' || $user->email === 'admin@vecta.com') {
-        $trips = \App\Models\Trip::with(['passenger', 'driver'])->latest()->get(); 
+        $trips = Trip::with(['passenger', 'driver'])->latest()->get(); 
         $pendingDrivers = User::where('role', 'driver')->where('is_approved', false)->get();
 
         return Inertia::render('Dashboard', [
@@ -42,15 +42,24 @@ Route::get('/dashboard', function () {
 
     // B. CONDUCTOR
     if ($user->role === 'driver') {
-        $availableTrips = \App\Models\Trip::where('status', 'pending')
-            ->whereNull('driver_id')->with('passenger')->latest()->get();
+        // Viajes disponibles de otros (pending)
+        $availableTrips = Trip::where('status', 'pending')
+            ->whereNull('driver_id')
+            ->where('passenger_id', '!=', $user->id) // No mostrar mis propios viajes
+            ->with('passenger')
+            ->latest()
+            ->get();
 
-        $myTrips = \App\Models\Trip::where('driver_id', $user->id)
-            ->with('passenger')->latest()->take(10)->get();
+        // Mis viajes realizados (Historial)
+        $myTrips = Trip::where('driver_id', $user->id)
+            ->with('passenger')
+            ->latest()
+            ->take(10)
+            ->get();
 
         return Inertia::render('Dashboard', [
-            'trips' => $myTrips, 
-            'myTrips' => $myTrips,
+            'trips' => $myTrips, // Para compatibilidad
+            'myTrips' => $myTrips, // Tu historial como chofer (Viaje Activo sale aquí)
             'availableTrips' => $availableTrips,
             'userRole' => 'driver',
             'isApproved' => (bool) $user->is_approved, 
@@ -58,15 +67,28 @@ Route::get('/dashboard', function () {
     }
 
     // C. PASAJERO (Default)
-    $trips = \App\Models\Trip::where('passenger_id', $user->id)
-        ->with('driver')->latest()->take(5)->get();
+    
+    // 1. Historial (Lo que ya tenías)
+    $trips = Trip::where('passenger_id', $user->id)
+        ->with('driver')
+        ->latest()
+        ->take(5)
+        ->get();
+
+    // 🔥 2. VIAJE ACTIVO (NUEVO: Vital para que el mapa sepa qué pintar)
+    // Buscamos si hay un viaje pendiente, aceptado o completado (para pagar)
+    $currentTrip = Trip::where('passenger_id', $user->id)
+        ->whereIn('status', ['pending', 'accepted', 'in_progress', 'completed'])
+        ->latest()
+        ->first();
 
     return Inertia::render('Dashboard', [
-        'trips' => $trips,
+        'trips' => $trips,       // Historial
+        'currentTrip' => $currentTrip, // 🔥 La tarjeta de estado actual
         'userRole' => 'passenger'
     ]);
 
-})->middleware(['auth'])->name('dashboard'); // ✅ Sin 'verified'
+})->middleware(['auth'])->name('dashboard');
 
 // 3. GRUPO DE RUTAS AUTENTICADAS
 Route::middleware('auth')->group(function () {
@@ -79,20 +101,21 @@ Route::middleware('auth')->group(function () {
     // 🔥 IDENTIDAD (Tus rutas - Fase 5)
     Route::post('/profile/identity', [ProfileController::class, 'updateIdentity'])->name('profile.identity.update');
     
-    // --- GESTIÓN DE VIAJES (Rutas de Argenis - Fase 4) ---
+    // --- GESTIÓN DE VIAJES ---
+    
     // Pasajero
     Route::get('/request-ride', [TripController::class, 'create'])->name('trips.create');
     Route::post('/request-ride', [TripController::class, 'store'])->name('trips.store');
     Route::delete('/trip/{trip}/cancel', [TripController::class, 'cancel'])->name('trip.cancel');
-    Route::post('/trip/{trip}/status', [TripController::class, 'updateStatus'])->name('trip.updateStatus');
-
+    
+    // 🔥 Corrección de nombres para coincidir con Vue (trips.start vs trip.start)
     // Conductor
     Route::put('/trip/{id}/accept', [TripController::class, 'accept'])->name('trip.accept');
-    Route::put('/trip/{id}/start', [TripController::class, 'startTrip'])->name('trip.start');
-    Route::put('/trip/{id}/finish', [TripController::class, 'finishTrip'])->name('trip.finish');
+    Route::put('/trip/{id}/start', [TripController::class, 'startTrip'])->name('trips.start'); // OJO: nombre plural
+    Route::put('/trip/{id}/finish', [TripController::class, 'finishTrip'])->name('trips.finish'); // OJO: nombre plural
 });
 
-// 4. RUTAS DE ADMINISTRADOR (Unificadas)
+// 4. RUTAS DE ADMINISTRADOR
 Route::middleware(['auth'])->prefix('admin')->group(function () {
     
     // --- VERIFICACIONES DE IDENTIDAD (Tus rutas) ---

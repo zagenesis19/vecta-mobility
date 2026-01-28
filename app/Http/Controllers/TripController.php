@@ -17,37 +17,46 @@ class TripController extends Controller
 
     public function store(Request $request)
     {
-        // Validamos incluyendo el método de pago
+        // 1. VALIDACIÓN
+        // Mantenemos tus reglas, pero aceptamos 'price' (que viene del front nuevo) o 'amount'
         $request->validate([
-            'origin' => 'required|string',
+            'origin' => 'required|string', // Viene del Vue como 'origin'
+            'destination' => 'required|string',
             'origin_lat' => 'required|numeric',
             'origin_lng' => 'required|numeric',
-            'destination' => 'required|string',
             'destination_lat' => 'required|numeric',
             'destination_lng' => 'required|numeric',
-            'distance' => 'nullable|numeric',
-            'amount' => 'nullable|numeric',
-            'payment_method' => 'required|string|in:cash,pago_movil' // <-- Importante para Fase 4
+            'payment_method' => 'required|string', 
+            // Quitamos la restricción estricta 'in:cash...' para evitar errores si el Vue manda "Efectivo"
         ]);
 
+        // 2. CREACIÓN (EL PUENTE)
+        // Aquí hacemos el mapeo: Vue (origin) -> BD (origin_address)
         Trip::create([
             'passenger_id' => Auth::id(),
-            'origin' => $request->origin,
+            
+            // Mapeo de nombres normalizados
+            'origin_address' => $request->origin, 
+            'destination_address' => $request->destination,
+            
+            // Coordenadas
             'origin_lat' => $request->origin_lat,
             'origin_lng' => $request->origin_lng,
-            'destination' => $request->destination,
             'destination_lat' => $request->destination_lat,
             'destination_lng' => $request->destination_lng,
-            'distance' => $request->distance ?? 0,
-            'price' => $request->amount ?? 5.00, // Precio base o calculado
+            
+            // Precio (Usamos price si viene, o amount, o 5.00 por defecto)
+            'price' => $request->price ?? $request->amount ?? 5.00,
+            
             'payment_method' => $request->payment_method,
             'status' => 'pending',
         ]);
 
+        // Redirigimos al Dashboard para ver la tarjeta del viaje creado
         return redirect()->route('dashboard')->with('success', '¡Viaje solicitado con éxito!');
     }
 
-    // --- FASE 3: ACEPTAR Y GESTIONAR VIAJE ---
+    // --- FASE 3: ACEPTAR Y GESTIONAR VIAJE (Lógica Original Intacta) ---
     
     public function accept($id)
     {
@@ -62,23 +71,24 @@ class TripController extends Controller
             'status' => 'accepted'
         ]);
 
-        return Redirect::back()->with('success', 'Has aceptado el viaje. ¡Ve a recoger al pasajero!');
+        // Usamos route('dashboard') para asegurar que se refresquen las tarjetas
+        return redirect()->route('dashboard')->with('success', 'Has aceptado el viaje. ¡Ve a recoger al pasajero!');
     }
 
     public function startTrip($id)
     {
         $trip = Trip::findOrFail($id);
         
-        // Validación de seguridad: Solo el chofer asignado puede iniciar
+        // Validación de seguridad
         if (Auth::id() !== $trip->driver_id) {
             return back()->with('error', 'No estás autorizado.');
         }
 
         $trip->update(['status' => 'in_progress']);
-        return Redirect::back()->with('success', 'Viaje iniciado. ¡Conduce con cuidado!');
+        return redirect()->route('dashboard')->with('success', 'Viaje iniciado. ¡Conduce con cuidado!');
     }
 
-    // --- FASE 4: FINALIZACIÓN Y PAGO ---
+    // --- FASE 4: FINALIZACIÓN Y PAGO (Lógica Original Intacta) ---
 
     public function finishTrip($id)
     {
@@ -90,8 +100,8 @@ class TripController extends Controller
 
         $trip->update(['status' => 'completed']);
         
-        // Aquí Argenis disparaba el modal de cobro en el front
-        return Redirect::back()->with('success', 'Viaje finalizado. Procede al cobro.');
+        // Al terminar, redirigimos con success para que el Frontend muestre el Modal de Cobro
+        return redirect()->route('dashboard')->with('success', 'Viaje finalizado. Procede al cobro.');
     }
 
     public function cancel($id)
@@ -99,15 +109,24 @@ class TripController extends Controller
         $trip = Trip::findOrFail($id);
         $user = Auth::user();
 
+        // Lógica de cancelación segura (Tuya)
         if ($user->role === 'passenger' && $trip->passenger_id === $user->id) {
             $trip->delete();
             return back()->with('success', 'Viaje eliminado.');
         }
         elseif ($user->role === 'driver' && $trip->driver_id === $user->id) {
+            // Si el chofer cancela, liberamos el viaje para otro
             $trip->update(['driver_id' => null, 'status' => 'pending']);
             return back()->with('success', 'Viaje liberado.');
         }
         
         return back()->with('error', 'No se pudo cancelar el viaje.');
+    }
+    
+    // Método extra para actualizar estatus genérico (si lo usas en el futuro)
+    public function updateStatus(Request $request, Trip $trip)
+    {
+        $trip->update(['status' => $request->status]);
+        return back();
     }
 }
