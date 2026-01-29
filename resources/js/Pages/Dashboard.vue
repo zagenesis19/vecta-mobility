@@ -1,9 +1,9 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, router, usePage, useForm, Link } from '@inertiajs/vue3';
-import { ref, onMounted, computed } from 'vue';
+import { ref, onMounted, computed, watch } from 'vue';
 
-// --- IMPORTAR LIBRERÍA DE MAPAS (LEAFLET) ---
+// --- LEAFLET ---
 import "leaflet/dist/leaflet.css";
 import { LMap, LTileLayer, LMarker, LPolyline, LPopup } from "@vue-leaflet/vue-leaflet";
 
@@ -11,38 +11,36 @@ const props = defineProps({
     availableTrips: { type: Array, default: () => [] },
     myTrips: { type: Array, default: () => [] },
     pendingDrivers: { type: Array, default: () => [] },
-    trips: { type: Array, default: () => [] }, // Historial del pasajero
+    trips: { type: Array, default: () => [] },
     userRole: String,
-    currentTrip: { type: Object, default: null }, // 🔥 Recibimos el viaje activo desde el Controller
+    currentTrip: { type: Object, default: null },
     isApproved: { type: Boolean, default: false } 
 });
 
 const page = usePage();
 const currentUserRole = props.userRole || page.props.auth.user.role;
 
-// --- VARIABLES DEL MAPA ---
+// --- MAPA ---
 const zoom = ref(15);
-const center = ref([10.2443, -66.8622]); // Default: Charallave
+const center = ref([10.2443, -66.8622]); 
 const userLocation = ref(null);
 const destinationLocation = ref(null);
 const mapReady = ref(false);
 
-// --- VARIABLES DE UI ---
+// --- UI ---
 const searchResults = ref([]);
 const isSearching = ref(false);
-const hideCompletedTrip = ref(false); // Para permitir pedir otro viaje
+const hideCompletedTrip = ref(false);
 const showPaymentModal = ref(false);
 const completedTrip = ref(null);
 let debounceTimeout;
 
-// --- BUSCAR VIAJE ACTIVO ---
-// Usamos el prop 'currentTrip' que nos manda Laravel, o buscamos en el array por seguridad
-const activeTrip = computed(() => {
-    return props.currentTrip || props.trips.find(t => ['pending', 'accepted', 'in_progress', 'completed'].includes(t.status));
-});
+// --- 💰 VARIABLES DE NEGOCIO ---
+const calculatedDistance = ref(0);
+const priceCar = ref(0);
+const priceMoto = ref(0);
+const selectedVehicle = ref(null); 
 
-// --- FORMULARIO ---
-// Mantenemos 'origin' y 'destination' porque el Controlador espera esos nombres para validar
 const form = useForm({
     origin: '📍 Localizando...',
     origin_lat: null,
@@ -50,155 +48,116 @@ const form = useForm({
     destination: '',
     destination_lat: null,
     destination_lng: null,
+    vehicle_type: 'car',
     payment_method: 'Efectivo', 
-    price: 5.00 
+    price: 0 
 });
 
-// --- 1. GEOLOCALIZACIÓN AUTOMÁTICA (GPS) ---
+// --- 🧮 CÁLCULOS (Internos para el precio) ---
+const calculateDistanceKm = (lat1, lon1, lat2, lon2) => {
+    const R = 6371; 
+    const dLat = (lat2 - lat1) * (Math.PI / 180);
+    const dLon = (lon2 - lon1) * (Math.PI / 180);
+    const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*(Math.PI/180))*Math.cos(lat2*(Math.PI/180))*Math.sin(dLon/2)*Math.sin(dLon/2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    return R * c; 
+};
+
+watch([() => form.origin_lat, () => form.destination_lat], () => {
+    if (form.origin_lat && form.destination_lat) {
+        const distRecta = calculateDistanceKm(form.origin_lat, form.origin_lng, form.destination_lat, form.destination_lng);
+        const distReal = distRecta * 1.4; // Factor tráfico/curvas
+        calculatedDistance.value = distReal.toFixed(2);
+
+        // Tarifas
+        let calcCar = 2.50 + (distReal * 0.90);
+        if (calcCar < 3.50) calcCar = 3.50;
+        priceCar.value = calcCar.toFixed(2);
+
+        let calcMoto = 1.20 + (distReal * 0.50);
+        if (calcMoto < 1.50) calcMoto = 1.50;
+        priceMoto.value = calcMoto.toFixed(2);
+    }
+});
+
+// --- GEO ---
 const getAddressFromCoords = async (lat, lng) => {
     try {
         const response = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
         const data = await response.json();
-        if (data && data.display_name) {
-            const shortAddress = data.display_name.split(',').slice(0, 3).join(',');
-            form.origin = "📍 " + shortAddress;
-        }
-    } catch (error) {
-        form.origin = "📍 Ubicación GPS Detectada";
-    }
+        if (data && data.display_name) form.origin = "📍 " + data.display_name.split(',')[0];
+    } catch (e) { form.origin = "📍 Ubicación detectada"; }
 };
 
 onMounted(() => {
     setTimeout(() => { mapReady.value = true; }, 100);
-
     if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                const lat = position.coords.latitude;
-                const lng = position.coords.longitude;
-                
-                center.value = [lat, lng];
-                userLocation.value = [lat, lng];
-                
-                form.origin_lat = lat;
-                form.origin_lng = lng;
-                getAddressFromCoords(lat, lng);
-            },
-            (error) => { console.error("Error de GPS:", error); form.origin = "📍 Error de GPS (Ingresa manual)"; }
-        );
+        navigator.geolocation.getCurrentPosition(pos => {
+            const { latitude, longitude } = pos.coords;
+            center.value = [latitude, longitude];
+            userLocation.value = [latitude, longitude];
+            form.origin_lat = latitude;
+            form.origin_lng = longitude;
+            getAddressFromCoords(latitude, longitude);
+        });
     }
 });
 
-// --- 2. BUSCADOR INTELIGENTE ---
-const handleInput = (event) => {
-    const query = event.target.value;
+// --- BUSCADOR ---
+const handleInput = (e) => {
+    const query = e.target.value;
     form.destination = query;
-
     clearTimeout(debounceTimeout);
     debounceTimeout = setTimeout(async () => {
-        if (query.length < 3) {
-            searchResults.value = [];
-            return;
-        }
+        if (query.length < 3) { searchResults.value = []; return; }
         isSearching.value = true;
         try {
-            const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ve&limit=5`);
-            const data = await response.json();
-            searchResults.value = data;
-        } catch (error) {
-            console.error("Error buscando:", error);
-        } finally {
-            isSearching.value = false;
-        }
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&countrycodes=ve&limit=5`);
+            searchResults.value = await res.json();
+        } catch (e) { console.error(e); } finally { isSearching.value = false; }
     }, 300);
 };
 
-// --- 3. SELECCIONAR DESTINO ---
 const selectLocation = (place) => {
     form.destination = place.display_name.split(',')[0]; 
     const lat = parseFloat(place.lat);
     const lng = parseFloat(place.lon);
-    
     form.destination_lat = lat;
     form.destination_lng = lng;
-    
     destinationLocation.value = [lat, lng];
     center.value = [lat, lng];
-    zoom.value = 16;
     searchResults.value = []; 
+    selectedVehicle.value = null; 
 };
 
-// --- ACCIONES DEL PASAJERO ---
-const submitTrip = () => {
-    if (!form.origin_lat || !form.destination_lat) {
-        alert("⚠️ Espera a que el GPS te localice o selecciona un destino válido.");
+// --- SUBMIT ---
+const submitRide = () => {
+    if (!selectedVehicle.value) {
+        alert("⚠️ Selecciona un tipo de vehículo.");
         return;
     }
+    form.vehicle_type = selectedVehicle.value;
+    form.price = selectedVehicle.value === 'car' ? priceCar.value : priceMoto.value;
 
-    // Enviamos 'origin' y 'destination' tal cual, el controlador los mapeará a 'origin_address'
     form.post(route('trips.store'), {
         onSuccess: () => {
             form.reset();
-            hideCompletedTrip.value = false; 
+            hideCompletedTrip.value = false;
+            selectedVehicle.value = null; 
         },
     });
 };
 
-const cancelTrip = (id) => {
-    if(confirm('¿Seguro que deseas cancelar la solicitud?')) {
-        router.delete(route('trip.cancel', id));
-    }
-};
-
-const startNewTrip = () => {
-    hideCompletedTrip.value = true; 
-    form.reset();
-    form.origin = "📍 Re-localizando...";
-    
-    if (userLocation.value) {
-        form.origin_lat = userLocation.value[0];
-        form.origin_lng = userLocation.value[1];
-        getAddressFromCoords(userLocation.value[0], userLocation.value[1]);
-        center.value = userLocation.value;
-    }
-};
-
-// --- ACCIONES DEL CONDUCTOR ---
-const acceptTrip = (tripId) => {
-    if (confirm('¿Confirmas que quieres tomar este viaje?')) {
-        router.put(route('trip.accept', tripId));
-    }
-};
-
-const startTrip = (tripId) => {
-    if (confirm('¿El pasajero ya subió al vehículo?')) {
-        router.put(route('trips.start', tripId));
-    }
-};
-
-const finishTrip = (trip) => { 
-    if (confirm('¿Han llegado al destino?')) {
-        router.put(route('trips.finish', trip.id), {}, {
-            onSuccess: () => {
-                completedTrip.value = trip;
-                showPaymentModal.value = true;
-            }
-        });
-    }
-};
-
-// --- ACCIONES ADMIN ---
+// --- ACCIONES ---
+const activeTrip = computed(() => props.currentTrip || props.trips.find(t => ['pending', 'accepted', 'in_progress', 'completed'].includes(t.status)));
+const cancelTrip = (id) => { if(confirm('¿Seguro?')) router.delete(route('trip.cancel', id)); };
+const startNewTrip = () => { hideCompletedTrip.value = true; form.reset(); form.origin="📍 Re-localizando..."; selectedVehicle.value = null; if(userLocation.value){ form.origin_lat=userLocation.value[0]; form.origin_lng=userLocation.value[1]; } };
+const acceptTrip = (id) => { if (confirm('¿Tomar viaje?')) router.put(route('trip.accept', id)); };
+const startTrip = (id) => { if (confirm('¿Pasajero a bordo?')) router.put(route('trips.start', id)); };
+const finishTrip = (trip) => { if (confirm('¿Llegada?')) router.put(route('trips.finish', trip.id), {}, { onSuccess: () => { completedTrip.value = trip; showPaymentModal.value = true; } }); };
 const approveDriver = (id) => { if(confirm('¿Aprobar?')) router.put(route('admin.approve', id)); };
 const rejectDriver = (id) => { if(confirm('¿Rechazar?')) router.delete(route('admin.reject', id)); };
-
-// --- UTILIDADES ---
 const closePaymentModal = () => { showPaymentModal.value = false; completedTrip.value = null; };
-const statusColor = (status) => {
-    if (status === 'pending') return 'bg-yellow-100 text-yellow-800';
-    if (status === 'accepted') return 'bg-blue-100 text-blue-800';
-    if (status === 'in_progress') return 'bg-purple-100 text-purple-800';
-    return 'bg-green-100 text-green-800';
-};
 </script>
 
 <template>
@@ -217,261 +176,144 @@ const statusColor = (status) => {
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
                 
                 <div v-if="currentUserRole === 'admin'" class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6">
-                    <h3 class="font-bold text-lg mb-4">👮‍♂️ Solicitudes de Conductores</h3>
-                    <table v-if="pendingDrivers.length > 0" class="min-w-full mt-4 border">
-                        <thead class="bg-gray-100">
-                            <tr><th class="px-4 py-2">Nombre</th><th class="px-4 py-2">Acción</th></tr>
-                        </thead>
-                        <tbody>
-                            <tr v-for="driver in pendingDrivers" :key="driver.id" class="border-t">
-                                <td class="px-4 py-2 text-center">{{driver.name}}</td>
-                                <td class="px-4 py-2 text-center flex justify-center gap-4">
-                                    <button @click="approveDriver(driver.id)" class="text-green-600 font-bold hover:underline">✔ Aprobar</button>
-                                    <button @click="rejectDriver(driver.id)" class="text-red-600 font-bold hover:underline">❌ Rechazar</button>
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                    <p v-else class="text-gray-500 mt-4">No hay solicitudes pendientes.</p>
+                    <h3 class="font-bold text-lg mb-4">Solicitudes</h3>
+                    <div v-for="d in pendingDrivers" :key="d.id" class="flex justify-between border-b py-2 items-center">
+                        <span class="font-bold">{{d.name}}</span>
+                        <div><button @click="approveDriver(d.id)" class="text-green-600 font-bold bg-green-50 px-2 rounded mr-2">✔</button><button @click="rejectDriver(d.id)" class="text-red-600 font-bold bg-red-50 px-2 rounded">❌</button></div>
+                    </div>
                 </div>
 
-                <div v-else-if="currentUserRole === 'driver'" class="space-y-8">
-                    <div v-if="!isApproved" class="bg-yellow-50 border-l-4 border-yellow-400 p-8 shadow-md rounded-r-lg flex items-center justify-center min-h-[400px]">
-                        <div class="text-center">
-                            <div class="text-6xl mb-4">⏳</div>
-                            <h3 class="text-2xl font-bold text-yellow-800 mb-2">Cuenta en Revisión</h3>
-                            <p class="text-yellow-700 max-w-md mx-auto">Tus documentos han sido enviados. Espera aprobación del administrador.</p>
-                        </div>
-                    </div>
-
+                <div v-else-if="currentUserRole === 'driver'" class="space-y-6">
+                    <div v-if="!isApproved" class="bg-yellow-50 p-8 text-center rounded-lg border-l-4 border-yellow-400"><h3 class="text-xl font-bold text-yellow-800">Cuenta en Revisión ⏳</h3></div>
                     <div v-else>
-                        <div class="bg-white p-4 rounded-xl shadow-sm flex justify-between items-center border-l-4 border-green-500 mb-6">
-                            <div>
-                                <h3 class="font-bold text-gray-800 text-lg">Estás Conectado</h3>
-                                <p class="text-sm text-gray-500">Visible para pasajeros cercanos.</p>
+                        <div class="bg-green-100 p-4 rounded-lg flex justify-between items-center mb-6"><span class="font-bold text-green-800">🟢 EN LÍNEA</span></div>
+                        
+                        <div v-for="trip in myTrips" :key="trip.id" class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500 mb-4">
+                            <div class="flex justify-between">
+                                <div><h4 class="font-bold">Pasajero #{{trip.passenger_id}}</h4><p class="text-sm text-gray-500">{{trip.origin_address}} ➡ {{trip.destination_address}}</p></div>
+                                <div class="text-right"><span class="text-2xl font-bold text-green-600">${{trip.price}}</span><p class="text-xs uppercase bg-gray-200 px-1 rounded">{{trip.payment_method}}</p></div>
                             </div>
-                            <span class="text-green-600 font-bold text-sm bg-green-100 px-3 py-1 rounded-full">EN LÍNEA 🟢</span>
+                            <button v-if="trip.status==='accepted'" @click="startTrip(trip.id)" class="w-full mt-4 bg-blue-600 text-white py-2 rounded-lg font-bold">▶️ Iniciar</button>
+                            <button v-if="trip.status==='in_progress'" @click="finishTrip(trip)" class="w-full mt-4 bg-red-500 text-white py-2 rounded-lg font-bold">🏁 Finalizar</button>
                         </div>
 
-                        <div v-if="myTrips && myTrips.length > 0" class="space-y-4">
-                            <h3 class="font-bold text-gray-800 text-lg border-b pb-2">🚖 Tu Viaje Activo</h3>
-                            
-                            <div v-for="trip in myTrips" :key="trip.id" class="bg-white p-6 rounded-2xl shadow-lg border border-blue-100 mb-4">
-                                <div class="flex justify-between items-start mb-4">
-                                    <div>
-                                        <h4 class="font-bold text-lg text-gray-800">Pasajero #{{ trip.passenger_id }}</h4>
-                                        <p class="text-sm text-gray-500">📍 {{ trip.origin_address }}</p>
-                                        <p class="text-sm text-gray-900 font-bold">🏁 {{ trip.destination_address }}</p>
-                                    </div>
-                                    <div class="text-right">
-                                        <span class="block text-2xl font-bold text-green-600">${{ trip.price }}</span>
-                                        <span class="text-xs uppercase font-bold bg-gray-100 px-2 py-1 rounded">{{ trip.payment_method }}</span>
-                                    </div>
-                                </div>
-
-                                <div v-if="trip.status === 'accepted'" class="mt-4">
-                                    <button @click="startTrip(trip.id)" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition shadow-lg">
-                                        ▶️ Iniciar Viaje (Pasajero a bordo)
-                                    </button>
-                                </div>
-
-                                <div v-else-if="trip.status === 'in_progress'" class="mt-4 space-y-3">
-                                    <div class="bg-yellow-50 border border-yellow-200 text-yellow-800 p-3 rounded-lg text-center font-medium animate-pulse">
-                                        🚕 Viaje en curso...
-                                    </div>
-                                    <button @click="finishTrip(trip)" class="w-full bg-red-500 hover:bg-red-600 text-white font-bold py-3 rounded-xl transition shadow-lg">
-                                        🏁 Finalizar y Cobrar
-                                    </button>
-                                </div>
-
-                                <div v-else-if="trip.status === 'completed'" class="mt-4 bg-green-50 border border-green-200 p-4 rounded-xl text-center">
-                                    <p class="text-green-800 font-bold text-lg">✅ ¡Cobrado!</p>
-                                    <p class="text-gray-600 text-sm">Esperando nuevo viaje...</p>
-                                </div>
+                        <h3 v-if="availableTrips.length>0" class="font-bold text-lg">🔥 Disponibles</h3>
+                        <div v-for="trip in availableTrips" :key="trip.id" class="bg-white p-4 rounded-xl shadow mt-2 border">
+                            <div class="flex justify-between items-center mb-2">
+                                <span class="bg-black text-white px-2 py-1 text-xs rounded uppercase font-bold">{{trip.vehicle_type === 'car' ? '🚗 Carro' : '🏍️ Moto'}}</span>
+                                <span class="font-bold text-green-600 text-xl">${{trip.price}}</span>
                             </div>
+                            <p class="text-sm">📍 {{trip.origin_address}}</p>
+                            <p class="font-bold text-sm">🏁 {{trip.destination_address}}</p>
+                            <button @click="acceptTrip(trip.id)" class="w-full mt-3 bg-gray-100 hover:bg-green-500 hover:text-white py-2 rounded-lg font-bold">Aceptar</button>
                         </div>
-
-                        <div v-if="availableTrips.length === 0 && (!myTrips || myTrips.length === 0)" class="flex flex-col items-center justify-center py-16 bg-white rounded-2xl shadow-sm border border-gray-100 mt-8">
-                             <div class="text-4xl mb-4">📡</div>
-                             <h3 class="text-xl font-bold text-gray-800">Escaneando zona...</h3>
-                             <p class="text-gray-500">No hay pasajeros solicitando ahora.</p>
-                        </div>
-
-                        <div v-else-if="availableTrips.length > 0" class="mt-8">
-                            <h3 class="text-xl font-bold text-gray-800 mb-4">🔥 Solicitudes Pendientes</h3>
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div v-for="trip in availableTrips" :key="trip.id" class="bg-white rounded-2xl shadow-lg border border-gray-100 overflow-hidden group">
-                                    <div class="bg-gray-900 p-4 flex justify-between items-center text-white">
-                                        <span class="font-bold text-lg text-green-400">${{ trip.price }}</span>
-                                        <span class="text-xs bg-gray-700 px-2 py-1 rounded">{{ trip.payment_method }}</span>
-                                    </div>
-                                    <div class="p-5 space-y-4">
-                                        <div>
-                                            <p class="text-xs text-gray-400 uppercase">Recoger en</p>
-                                            <p class="font-bold text-gray-800 truncate">{{ trip.origin_address }}</p>
-                                        </div>
-                                        <div>
-                                            <p class="text-xs text-gray-400 uppercase">Destino</p>
-                                            <p class="font-bold text-gray-800 truncate">{{ trip.destination_address }}</p>
-                                        </div>
-                                        <button @click="acceptTrip(trip.id)" class="w-full py-3 bg-gray-100 text-gray-800 font-bold rounded-xl group-hover:bg-green-500 group-hover:text-white transition-colors">
-                                            Aceptar Viaje ⚡
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <div v-if="availableTrips.length===0" class="text-center py-10 bg-white rounded-lg border-dashed border"><p class="text-gray-500">Buscando pasajeros...</p></div>
                     </div>
                 </div>
 
                 <div v-else class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-                    
                     <div class="lg:col-span-1 space-y-6">
                         
                         <div v-if="!activeTrip || (activeTrip.status === 'completed' && hideCompletedTrip)" class="bg-white rounded-2xl p-6 shadow-lg border border-gray-100 relative z-10">
-                            <h2 class="text-2xl font-bold mb-4 text-gray-800">Pedir un viaje</h2>
+                            <h2 class="text-2xl font-bold mb-4 text-gray-800">¿A dónde vamos?</h2>
                             
-                            <form @submit.prevent="submitTrip" class="space-y-4">
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">📍 Origen (GPS)</label>
-                                    <input v-model="form.origin" type="text" class="w-full rounded-lg border-gray-300 mt-1 bg-gray-50 text-gray-600 cursor-not-allowed" readonly>
-                                    <p v-if="userLocation" class="text-xs text-green-600 mt-1 font-bold">✅ Ubicación satelital detectada</p>
-                                </div>
-
+                            <div class="space-y-4 mb-6">
+                                <div><label class="text-xs font-bold text-gray-400 uppercase">Origen</label><input v-model="form.origin" type="text" class="w-full rounded-lg border-gray-300 bg-gray-50 text-sm" readonly></div>
                                 <div class="relative">
-                                    <label class="block text-sm font-medium text-gray-700">🏁 Destino</label>
-                                    <input 
-                                        :value="form.destination" 
-                                        @input="handleInput"
-                                        type="text" 
-                                        placeholder="Ej. Centro Comercial..." 
-                                        class="w-full rounded-lg border-gray-300 mt-1 p-2 focus:ring-black focus:border-black" 
-                                        autocomplete="off"
-                                    >
-                                    <ul v-if="searchResults.length > 0" class="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-60 overflow-y-auto">
-                                        <li v-for="place in searchResults" :key="place.place_id" @click="selectLocation(place)" class="px-4 py-3 hover:bg-blue-50 cursor-pointer border-b last:border-0 text-sm flex items-center gap-2">
-                                            <span>🏁</span>
-                                            <div>
-                                                <p class="font-bold text-gray-800">{{ place.display_name.split(',')[0] }}</p>
-                                                <p class="text-xs text-gray-500 truncate w-64">{{ place.display_name }}</p>
-                                            </div>
-                                        </li>
+                                    <label class="text-xs font-bold text-gray-400 uppercase">Destino</label>
+                                    <input :value="form.destination" @input="handleInput" type="text" placeholder="Buscar destino..." class="w-full rounded-lg border-gray-300 text-sm p-2">
+                                    <ul v-if="searchResults.length>0" class="absolute z-50 w-full bg-white border rounded-lg shadow-xl mt-1 max-h-40 overflow-y-auto">
+                                        <li v-for="p in searchResults" :key="p.place_id" @click="selectLocation(p)" class="px-4 py-2 hover:bg-gray-100 cursor-pointer text-sm truncate border-b">🏁 {{p.display_name}}</li>
                                     </ul>
-                                    <p v-if="isSearching" class="text-xs text-blue-500 mt-1 animate-pulse">🔎 Buscando...</p>
+                                </div>
+                            </div>
+                            
+                            <div class="mb-4">
+                                <label class="block text-xs font-bold text-gray-400 uppercase mb-2">Método de Pago</label>
+                                <div class="grid grid-cols-3 gap-2">
+                                    <div @click="form.payment_method = 'Efectivo'" class="cursor-pointer border rounded-lg p-2 text-center text-xs font-bold transition-all" :class="form.payment_method === 'Efectivo' ? 'bg-green-100 border-green-500 text-green-800' : 'hover:bg-gray-50'">
+                                        💵 Efectivo
+                                    </div>
+                                    <div @click="form.payment_method = 'Pago Móvil'" class="cursor-pointer border rounded-lg p-2 text-center text-xs font-bold transition-all" :class="form.payment_method === 'Pago Móvil' ? 'bg-blue-100 border-blue-500 text-blue-800' : 'hover:bg-gray-50'">
+                                        📱 Pago Móvil
+                                    </div>
+                                    <div @click="form.payment_method = 'Tarjeta'" class="cursor-pointer border rounded-lg p-2 text-center text-xs font-bold transition-all" :class="form.payment_method === 'Tarjeta' ? 'bg-purple-100 border-purple-500 text-purple-800' : 'hover:bg-gray-50'">
+                                        💳 Tarjeta
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div v-if="form.origin_lat && form.destination_lat" class="space-y-3 animate-fade-in">
+                                
+                                <div @click="selectedVehicle = 'motorcycle'" 
+                                     class="cursor-pointer bg-white border-2 rounded-xl p-3 flex justify-between items-center transition"
+                                     :class="selectedVehicle === 'motorcycle' ? 'border-black ring-2 ring-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'">
+                                    <div class="flex items-center gap-3">
+                                        <div class="bg-yellow-100 p-2 rounded-lg text-2xl">🏍️</div>
+                                        <div><p class="font-bold text-gray-800 text-sm">Moto</p><p class="text-xs text-gray-500">Rápido • 1 persona</p></div>
+                                    </div>
+                                    <span class="text-xl font-black text-gray-900">${{ priceMoto }}</span>
                                 </div>
 
-                                <div>
-                                    <label class="block text-sm font-medium text-gray-700">💳 Método de Pago</label>
-                                    <select v-model="form.payment_method" class="w-full rounded-lg border-gray-300 mt-1 p-2">
-                                        <option value="Efectivo">💵 Efectivo</option>
-                                        <option value="Pago Móvil">📱 Pago Móvil</option>
-                                        <option value="Tarjeta">💳 Tarjeta</option>
-                                    </select>
+                                <div @click="selectedVehicle = 'car'" 
+                                     class="cursor-pointer bg-white border-2 rounded-xl p-3 flex justify-between items-center transition"
+                                     :class="selectedVehicle === 'car' ? 'border-black ring-2 ring-black bg-gray-50' : 'border-gray-100 hover:border-gray-300'">
+                                    <div class="flex items-center gap-3">
+                                        <div class="bg-blue-100 p-2 rounded-lg text-2xl">🚗</div>
+                                        <div><p class="font-bold text-gray-800 text-sm">Carro</p><p class="text-xs text-gray-500">Cómodo • 4 personas</p></div>
+                                    </div>
+                                    <span class="text-xl font-black text-gray-900">${{ priceCar }}</span>
                                 </div>
 
-                                <button type="submit" :disabled="form.processing" class="w-full bg-black text-white font-bold py-3 rounded-xl hover:bg-gray-800 transition shadow-lg transform active:scale-95">
-                                    {{ form.processing ? 'Calculando...' : 'Confirmar Viaje 🚕' }}
+                                <button v-if="selectedVehicle" @click="submitRide" :disabled="form.processing" class="w-full bg-black text-white font-bold py-3 rounded-xl mt-4 hover:bg-gray-800 transition shadow-lg transform active:scale-95 animate-fade-in">
+                                    Confirmar Viaje en {{ selectedVehicle === 'car' ? '🚗' : '🏍️' }}
                                 </button>
-                            </form>
+                            </div>
+                            
+                            <div v-else class="text-center py-6 bg-gray-50 rounded-lg border-dashed border text-gray-400 text-sm">Elige destino para ver precios 👆</div>
                         </div>
 
-                        <div v-else class="bg-white rounded-2xl p-6 shadow-xl border-l-4 border-blue-500 relative overflow-hidden">
-                             <div class="absolute -right-10 -top-10 w-40 h-40 bg-blue-50 rounded-full opacity-50"></div>
-                             <div class="relative z-10">
-                                <div class="flex justify-between items-center mb-4">
-                                    <h2 class="text-xl font-bold text-gray-800">Estado del Viaje</h2>
-                                    <span class="px-3 py-1 rounded-full text-xs font-bold uppercase" :class="statusColor(activeTrip.status)">
-                                        {{ activeTrip.status }}
-                                    </span>
-                                </div>
-                                <div class="space-y-4 mb-6">
-                                    <div class="flex items-start gap-3"><div class="w-3 h-3 bg-blue-500 rounded-full mt-1.5"></div><div><p class="text-xs text-gray-400">Origen</p><p class="font-bold text-gray-800">{{ activeTrip.origin_address }}</p></div></div>
-                                    <div class="flex items-start gap-3"><div class="w-3 h-3 bg-red-500 rounded-full mt-1.5"></div><div><p class="text-xs text-gray-400">Destino</p><p class="font-bold text-gray-800">{{ activeTrip.destination_address }}</p></div></div>
-                                </div>
-                                <div class="flex justify-between items-center bg-gray-50 p-3 rounded-lg">
-                                    <div><p class="text-xs text-gray-500">Monto</p><p class="text-2xl font-black text-gray-900">${{ activeTrip.price }}</p></div>
-                                    <div class="text-right"><p class="text-xs text-gray-500">Pago</p><p class="font-bold text-gray-700">{{ activeTrip.payment_method }}</p></div>
-                                </div>
-
-                                <button v-if="activeTrip.status === 'pending'" @click="cancelTrip(activeTrip.id)" class="w-full mt-4 text-red-500 text-sm font-bold hover:underline">
-                                    Cancelar solicitud
-                                </button>
-
-                                <div v-if="activeTrip.status === 'completed'" class="mt-6">
-                                    <button @click="startNewTrip" class="w-full bg-gray-900 hover:bg-black text-white font-bold py-3 rounded-xl transition flex items-center justify-center gap-2 shadow-lg">
-                                        Pedir nuevo viaje 🔄
-                                    </button>
-                                </div>
+                        <div v-else class="bg-white rounded-2xl p-6 shadow-xl border-l-4 border-blue-500">
+                             <h2 class="text-xl font-bold mb-4">Viaje en curso</h2>
+                             <div class="flex justify-between mb-4">
+                                 <span class="font-bold text-lg text-gray-800 uppercase bg-gray-100 px-2 rounded flex items-center gap-2">
+                                     {{ activeTrip.vehicle_type === 'motorcycle' ? '🏍️ MOTO' : '🚗 CARRO' }}
+                                 </span>
+                                 <span class="font-bold text-green-600 text-xl">${{activeTrip.price}}</span>
                              </div>
+                             <div class="space-y-2 text-sm text-gray-600 mb-4"><p>📍 {{activeTrip.origin_address}}</p><p>🏁 {{activeTrip.destination_address}}</p></div>
+                             <div class="bg-blue-50 text-blue-800 p-2 rounded text-center text-xs font-bold uppercase mb-4">{{activeTrip.status}}</div>
+                             <button v-if="activeTrip.status==='pending'" @click="cancelTrip(activeTrip.id)" class="w-full text-red-500 text-sm font-bold hover:underline">Cancelar solicitud</button>
+                             <button v-if="activeTrip.status==='completed'" @click="startNewTrip" class="w-full bg-black text-white py-3 rounded-xl font-bold hover:bg-gray-800 transition">Pedir Nuevo Viaje 🔄</button>
                         </div>
                     </div>
 
                     <div class="lg:col-span-2">
-                        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 h-full flex flex-col min-h-[500px]">
-                            <h3 class="font-bold text-gray-800 mb-4 flex justify-between">
-                                <span>🗺️ Mapa en vivo</span>
-                                <span v-if="userLocation" class="text-green-600 text-sm animate-pulse">📍 GPS Activo</span>
-                                <span v-else class="text-red-500 text-sm">Buscando señal...</span>
-                            </h3>
-                            
-                            <div class="flex-1 rounded-xl overflow-hidden border border-gray-200 relative z-0">
-                                 <l-map v-if="mapReady" ref="map" v-model:zoom="zoom" :center="center" :use-global-leaflet="false">
-                                    <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"></l-tile-layer>
-                                    
-                                    <l-marker v-if="userLocation" :lat-lng="userLocation">
-                                        <l-popup>👋 ¡Estás aquí!</l-popup>
-                                    </l-marker>
-
-                                    <l-marker v-if="destinationLocation && (!activeTrip || hideCompletedTrip)" :lat-lng="destinationLocation">
-                                        <l-popup>🏁 Destino: {{ form.destination }}</l-popup>
-                                    </l-marker>
-
-                                    <div v-if="activeTrip && !hideCompletedTrip">
-                                        <l-marker v-if="activeTrip.destination_lat" :lat-lng="[parseFloat(activeTrip.destination_lat), parseFloat(activeTrip.destination_lng)]">
-                                            <l-popup>🏁 Fin del Viaje</l-popup>
-                                        </l-marker>
-
-                                        <l-polyline 
-                                            v-if="activeTrip.origin_lat && activeTrip.destination_lat" 
-                                            :lat-lngs="[
-                                                [parseFloat(activeTrip.origin_lat), parseFloat(activeTrip.origin_lng)], 
-                                                [parseFloat(activeTrip.destination_lat), parseFloat(activeTrip.destination_lng)]
-                                            ]" 
-                                            color="#3B82F6" 
-                                            :weight="5"
-                                        />
-                                    </div>
-                                 </l-map>
-                            </div>
+                        <div class="bg-white rounded-2xl shadow-sm border p-2 h-[500px] lg:h-auto lg:min-h-[600px] flex flex-col">
+                             <l-map v-if="mapReady" ref="map" v-model:zoom="zoom" :center="center" :use-global-leaflet="false" class="flex-1 rounded-xl z-0">
+                                <l-tile-layer url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"></l-tile-layer>
+                                <l-marker v-if="userLocation" :lat-lng="userLocation"><l-popup>Tú</l-popup></l-marker>
+                                <l-marker v-if="destinationLocation" :lat-lng="destinationLocation"><l-popup>Destino</l-popup></l-marker>
+                                <l-polyline v-if="activeTrip && activeTrip.origin_lat" :lat-lngs="[[activeTrip.origin_lat, activeTrip.origin_lng], [activeTrip.destination_lat, activeTrip.destination_lng]]" color="blue"></l-polyline>
+                             </l-map>
                         </div>
                     </div>
                 </div>
-
             </div>
         </div>
-        
+
         <div v-if="showPaymentModal" class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm">
-            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden relative transform transition-all scale-100">
-                <div class="bg-green-500 p-6 text-center text-white">
-                    <div class="bg-white text-green-500 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-3 shadow-lg"><span class="text-3xl">💵</span></div>
-                    <h3 class="text-2xl font-bold">¡Viaje Finalizado!</h3>
-                    <p class="text-green-100 text-sm">Cobro al pasajero</p>
-                </div>
-                <div class="p-8 text-center space-y-6">
-                    <div>
-                        <p class="text-gray-500 uppercase text-xs font-bold tracking-wider">Total a Pagar</p>
-                        <p class="text-5xl font-extrabold text-gray-900 mt-2">${{ completedTrip?.price }}</p>
-                    </div>
-                    <div class="bg-gray-50 rounded-xl p-4 text-sm text-gray-600 space-y-2">
-                        <div class="flex justify-between"><span>Pasajero:</span><span class="font-bold text-gray-800">#{{ completedTrip?.passenger_id }}</span></div>
-                        <div class="flex justify-between"><span>Método:</span><span class="font-bold text-gray-800">{{ completedTrip?.payment_method }}</span></div>
-                    </div>
-                    <button @click="closePaymentModal" class="w-full bg-gray-900 hover:bg-black text-white font-bold py-4 rounded-xl shadow-lg transition transform hover:scale-[1.02]">
-                        ✅ Confirmar Pago Recibido
-                    </button>
-                </div>
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden text-center p-8">
+                <div class="text-6xl mb-4">💵</div>
+                <h3 class="text-2xl font-bold mb-2">Cobrar ${{completedTrip?.price}}</h3>
+                <p class="text-gray-500 mb-6">Método: {{completedTrip?.payment_method}}</p>
+                <button @click="closePaymentModal" class="w-full bg-green-500 text-white font-bold py-3 rounded-xl hover:bg-green-600 transition">Confirmar Cobro ✅</button>
             </div>
         </div>
-
     </AuthenticatedLayout>
 </template>
+
+<style scoped>
+.animate-fade-in { animation: fadeIn 0.4s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+</style>

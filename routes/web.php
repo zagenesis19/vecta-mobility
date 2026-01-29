@@ -42,15 +42,22 @@ Route::get('/dashboard', function () {
 
     // B. CONDUCTOR
     if ($user->role === 'driver') {
-        // Viajes disponibles de otros (pending)
+        
+        // 1. Averiguar qué vehículo tiene este chofer
+        // CORRECCIÓN: Quitamos ->load('vehicle') y accedemos directo.
+        // Laravel buscará el vehículo automáticamente si existe.
+        $driverType = $user->vehicle ? $user->vehicle->type : 'car'; 
+
+        // 2. Filtrar viajes disponibles
         $availableTrips = Trip::where('status', 'pending')
             ->whereNull('driver_id')
-            ->where('passenger_id', '!=', $user->id) // No mostrar mis propios viajes
+            ->where('passenger_id', '!=', $user->id)
+            ->where('vehicle_type', $driverType) // <--- Filtro por tipo de vehículo
             ->with('passenger')
             ->latest()
             ->get();
 
-        // Mis viajes realizados (Historial)
+        // 3. Mis viajes realizados (Historial)
         $myTrips = Trip::where('driver_id', $user->id)
             ->with('passenger')
             ->latest()
@@ -58,14 +65,13 @@ Route::get('/dashboard', function () {
             ->get();
 
         return Inertia::render('Dashboard', [
-            'trips' => $myTrips, // Para compatibilidad
-            'myTrips' => $myTrips, // Tu historial como chofer (Viaje Activo sale aquí)
+            'trips' => $myTrips,
+            'myTrips' => $myTrips,
             'availableTrips' => $availableTrips,
             'userRole' => 'driver',
             'isApproved' => (bool) $user->is_approved, 
         ]);
     }
-
     // C. PASAJERO (Default)
     
     // 1. Historial (Lo que ya tenías)

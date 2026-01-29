@@ -13,11 +13,15 @@ const form = useForm({
     password: '',
     password_confirmation: '',
     role: 'passenger', // Por defecto es pasajero
-    // Campos del Vehículo (Solo se usan si es conductor)
+    
+    // --- DATOS DEL VEHÍCULO ---
+    vehicle_type: 'car', // <--- ¡NUEVO! Por defecto Carro
     vehicle_model: '',
     vehicle_plate: '',
     vehicle_year: '',
     vehicle_color: '',
+    
+    license_file: null // Campo para el archivo de la licencia
 });
 
 const submit = () => {
@@ -88,9 +92,21 @@ const submit = () => {
             <div v-if="form.role === 'driver'" class="mt-6 bg-blue-50 p-4 rounded-lg border border-blue-100 space-y-4 animate-fade-in-down">
                 <h3 class="font-bold text-blue-800 text-sm mb-2">Datos del Vehículo</h3>
                 
+                <div>
+                    <InputLabel for="vehicle_type" value="¿Qué conduces?" />
+                    <select 
+                        id="vehicle_type" 
+                        v-model="form.vehicle_type"
+                        class="border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm block w-full mt-1"
+                    >
+                        <option value="car">🚗 Carro / Automóvil</option>
+                        <option value="motorcycle">🏍️ Moto / Mototaxi</option>
+                    </select>
+                </div>
+
                 <div class="grid grid-cols-2 gap-4">
                     <div>
-                        <InputLabel for="vehicle_model" value="Modelo (Ej: Toyota Corolla)" />
+                        <InputLabel for="vehicle_model" value="Modelo (Ej: Bera SBR)" />
                         <TextInput
                             id="vehicle_model"
                             type="text"
@@ -109,6 +125,7 @@ const submit = () => {
                             v-model="form.vehicle_year"
                             required
                         />
+                         <InputError class="mt-2" :message="form.errors.vehicle_year" />
                     </div>
                 </div>
 
@@ -118,7 +135,7 @@ const submit = () => {
                         <TextInput
                             id="vehicle_plate"
                             type="text"
-                            class="mt-1 block w-full"
+                            class="mt-1 block w-full uppercase"
                             v-model="form.vehicle_plate"
                             required
                         />
@@ -133,9 +150,22 @@ const submit = () => {
                             v-model="form.vehicle_color"
                             required
                         />
+                         <InputError class="mt-2" :message="form.errors.vehicle_color" />
                     </div>
                 </div>
+
+                <div>
+                    <InputLabel for="license_file" value="Licencia de Conducir (Imagen)" />
+                    <input 
+                        type="file" 
+                        @change="form.license_file = $event.target.files[0]"
+                        class="mt-1 block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-100 file:text-blue-700 hover:file:bg-blue-200"
+                        accept="image/*"
+                    />
+                    <InputError class="mt-2" :message="form.errors.license_file" />
+                </div>
             </div>
+
             <div class="mt-4">
                 <InputLabel for="password" value="Contraseña" />
                 <TextInput
@@ -179,7 +209,6 @@ const submit = () => {
 </template>
 
 <style scoped>
-/* Animación suave para cuando aparecen los campos del carro */
 .animate-fade-in-down {
     animation: fadeInDown 0.3s ease-out;
 }

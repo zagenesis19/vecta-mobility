@@ -8,8 +8,7 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-class User extends Authenticatable implements MustVerifyEmail
-
+class User extends Authenticatable
 {
     use HasApiTokens, HasFactory, Notifiable;
 
@@ -19,35 +18,25 @@ class User extends Authenticatable implements MustVerifyEmail
      * @var array<int, string>
      */
     protected $fillable = [
-        // --- BÁSICOS (ESTOS ERAN LOS QUE FALTABAN) ---
         'name',
         'email',
         'password',
-        
-        // --- ROLES Y ESTADO ---
-        'role',          // 'admin', 'driver', 'passenger'
-        'is_approved',   // Para choferes
-        
-        // --- DATOS DE VEHÍCULO (Para Choferes) ---
-        'vehicle_model',
-        'vehicle_plate',
-        'vehicle_year',
-        'vehicle_color',
-        'license_file',
+        'role',
+        'is_approved',
+        'license_file', // Este SÍ se queda aquí (pertenece a la persona)
 
-        // --- IDENTIDAD Y SEGURIDAD (Fase 5) ---
+        // --- FASE 5: IDENTIDAD ---
         'phone_number',
         'phone_verified_at',
         'id_card_number',
-        'birth_date',          // <--- Nuevo
-        'id_card_expires_at',  // <--- Nuevo
+        'birth_date',
         'id_card_photo_path',
+        'identity_status',
+        'identity_feedback',
         'profile_photo_path',
         'biometric_photo_path',
         
-        // --- ESTADO DE VERIFICACIÓN (Admin) ---
-        'identity_status',     // 'unverified', 'pending', 'approved', 'rejected'
-        'identity_feedback',   // Razón del rechazo
+        // ❌ AQUÍ QUITAMOS vehicle_model, vehicle_plate, etc.
     ];
 
     /**
@@ -67,9 +56,14 @@ class User extends Authenticatable implements MustVerifyEmail
      */
     protected $casts = [
         'email_verified_at' => 'datetime',
-        'phone_verified_at' => 'datetime',
-        'id_card_expires_at' => 'date', // Importante para que Vue lo lea bien
         'password' => 'hashed',
+        'phone_verified_at' => 'datetime',
         'is_approved' => 'boolean',
     ];
+
+    // 🔥 NUEVA RELACIÓN: Un usuario tiene un vehículo
+    public function vehicle()
+    {
+        return $this->hasOne(Vehicle::class);
+    }
 }
