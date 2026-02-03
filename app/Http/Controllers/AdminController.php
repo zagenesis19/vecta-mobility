@@ -10,22 +10,29 @@ class AdminController extends Controller
 {
     /*
     |--------------------------------------------------------------------------
-    | SECCIÓN 1: GESTIÓN DE IDENTIDAD (FASE 5)
+    | SECCIÓN 1: GESTIÓN DE IDENTIDAD Y VERIFICACIONES (CENTRALIZADO)
     |--------------------------------------------------------------------------
-    | Métodos encargados de verificar documentos (Cédula, Fotos, Licencia).
+    | Aquí gestionamos tanto los documentos como la aprobación inicial del chofer.
     */
 
     /**
-     * Muestra la lista de usuarios con documentos pendientes de revisión.
+     * Muestra la lista de verificaciones (Identidad + Solicitudes de Ingreso).
      */
     public function verifications()
     {
+        // 1. Usuarios con documentos de identidad pendientes (Tu lógica original)
         $users = User::where('identity_status', 'pending')
                      ->orderBy('updated_at', 'asc')
                      ->get();
 
+        // 2. NUEVO: Conductores registrados esperando aprobación básica (Movido del Dashboard)
+        $pendingDrivers = User::where('role', 'driver')
+                              ->where('is_approved', false)
+                              ->get();
+
         return Inertia::render('Admin/Verifications', [
-            'users' => $users
+            'users' => $users,              // Para la pestaña de Documentos
+            'pendingDrivers' => $pendingDrivers // Para la pestaña de Solicitudes Nuevas
         ]);
     }
 
@@ -65,19 +72,16 @@ class AdminController extends Controller
     |--------------------------------------------------------------------------
     | SECCIÓN 2: GESTIÓN GENERAL DE CHOFERES (CORE)
     |--------------------------------------------------------------------------
-    | Métodos recuperados para corregir el error "Method approve does not exist".
-    | Estos métodos son llamados desde el Dashboard principal de Admin.
     */
 
     /**
-     * Listado general de choferes (Dashboard Admin).
+     * Listado general de choferes (Dashboard Admin / Lista completa).
      */
     public function index()
     {
-        // Traemos todos los choferes para gestionarlos
         $drivers = User::where('role', 'driver')
-                       ->latest()
-                       ->get();
+                        ->latest()
+                        ->get();
 
         return Inertia::render('Admin/Drivers', [
             'drivers' => $drivers
@@ -85,8 +89,7 @@ class AdminController extends Controller
     }
 
     /**
-     * Aprobar manualmente a un chofer (Botón simple del Dashboard).
-     * ESTE ES EL MÉTODO QUE FALTABA Y CAUSABA EL ERROR.
+     * Aprobar manualmente a un chofer (Desde la lista de Verificaciones).
      */
     public function approve($id)
     {
@@ -94,22 +97,25 @@ class AdminController extends Controller
         
         $user->update([
             'is_approved' => true,
-            'identity_status' => 'approved' // Sincronizamos estado
+            // Opcional: Si apruebas manualmente sin docs, puedes dejar identity en pending o approved según prefieras.
+            // Aquí lo dejamos tal cual tu código anterior para no romper flujos.
+            'identity_status' => 'approved' 
         ]);
         
         return back()->with('success', 'Conductor aprobado manualmente.');
     }
 
     /**
-     * Rechazar/Eliminar a un chofer (Botón simple del Dashboard).
+     * Rechazar solicitud de chofer nuevo.
      */
     public function reject($id)
     {
         $user = User::findOrFail($id);
         
-        // Opción: Lo devolvemos a estado no aprobado
-        $user->update(['is_approved' => false]);
+        // CAMBIO IMPORTANTE: Usamos delete() para que desaparezca de la lista de "Pendientes".
+        // Si solo ponemos is_approved=false, seguiría apareciendo en la lista eternamente.
+        $user->delete();
 
-        return back()->with('success', 'Conductor desaprobado.');
+        return back()->with('success', 'Solicitud rechazada y usuario eliminado.');
     }
 }

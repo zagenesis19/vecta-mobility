@@ -12,25 +12,29 @@ class DatabaseSeeder extends Seeder
 {
     public function run(): void
     {
-        // 1. Verificamos si ya existe el admin para no duplicarlo
+        // 1. ADMIN
         if (!User::where('email', 'admin@vecta.com')->exists()) {
             User::create([
                 'name' => 'Génesis Zapata',
                 'email' => 'admin@vecta.com',
                 'password' => Hash::make('password'),
+                'role' => 'admin', // 🔥 Importante
+                'is_approved' => true,
             ]);
         }
 
-        // 2. Crear 10 Conductores
+        // 2. CREAR 10 CONDUCTORES
         for ($i = 1; $i <= 10; $i++) {
             $driver = User::create([
                 'name' => "Conductor $i",
-                'email' => "conductor$i@test.com", // Cambié el email para evitar conflictos
+                'email' => "conductor$i@test.com",
                 'password' => Hash::make('password'),
+                'role' => 'driver', // 🔥 Rol correcto
+                'is_approved' => true, // 🔥 Aprobado para poder trabajar
             ]);
 
             Vehicle::create([
-                'driver_id' => $driver->id,
+                'user_id' => $driver->id, // ✅ CORREGIDO: Antes decía driver_id
                 'model' => 'Toyota Corolla',
                 'plate' => 'ABC' . rand(100, 999),
                 'color' => 'Blanco',
@@ -38,25 +42,33 @@ class DatabaseSeeder extends Seeder
             ]);
         }
 
-        // 3. Crear un Pasajero
+        // 3. CREAR UN PASAJERO
         $passenger = User::create([
             'name' => 'Pasajero Frecuente',
-            'email' => 'cliente' . rand(1,999) . '@test.com', // Email único
+            'email' => 'cliente1@test.com',
             'password' => Hash::make('password'),
+            'role' => 'passenger', // 🔥 Rol correcto
         ]);
 
-        // 4. GENERAR 20 VIAJES (Esto es lo que te falta)
+        // 4. GENERAR 20 VIAJES (Con nombres de columnas corregidos)
         for ($i = 0; $i < 20; $i++) {
             Trip::create([
                 'passenger_id' => $passenger->id,
-                'driver_id' => rand(2, 11), // IDs aproximados de los conductores
-                'origin_lat' => 10.2460,
-                'origin_long' => -66.8620,
-                'dest_lat' => 10.1630,
-                'dest_long' => -66.8850,
-                'status' => ['completed', 'active', 'cancelled'][rand(0, 2)],
-                'fare' => rand(5, 20),
-                'distance' => rand(5, 15),
+                'driver_id' => rand(2, 11), // IDs de los conductores creados arriba
+                
+                // Direcciones ficticias
+                'origin_address' => 'Plaza Bolívar, Charallave',
+                'destination_address' => 'Estación Ferrocarril',
+                
+                // Coordenadas (Usando nombres estándar del controlador)
+                'origin_lat' => 10.2460 + (rand(-100, 100) / 10000),
+                'origin_lng' => -66.8620 + (rand(-100, 100) / 10000), // ✅ lng, no long
+                'destination_lat' => 10.1630,
+                'destination_lng' => -66.8850, // ✅ destination_lng
+                
+                'status' => ['completed', 'accepted', 'cancelled'][rand(0, 2)],
+                'price' => rand(5, 20), // ✅ price, no fare
+                'payment_method' => 'Efectivo',
             ]);
         }
     }

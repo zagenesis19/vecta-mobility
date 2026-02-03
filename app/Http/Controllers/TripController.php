@@ -18,45 +18,36 @@ class TripController extends Controller
     public function store(Request $request)
     {
         // 1. VALIDACIÓN
-        // Mantenemos tus reglas, pero aceptamos 'price' (que viene del front nuevo) o 'amount'
         $request->validate([
-            'origin' => 'required|string', // Viene del Vue como 'origin'
+            'origin' => 'required|string', 
             'destination' => 'required|string',
             'origin_lat' => 'required|numeric',
             'origin_lng' => 'required|numeric',
             'destination_lat' => 'required|numeric',
             'destination_lng' => 'required|numeric',
-            'payment_method' => 'required|string', 
-            // Quitamos la restricción estricta 'in:cash...' para evitar errores si el Vue manda "Efectivo"
+            'payment_method' => 'required|string',
+            'vehicle_type' => 'nullable|string', // Aceptamos vehicle_type (car/motorcycle)
         ]);
 
         // 2. CREACIÓN (EL PUENTE)
-        // Aquí hacemos el mapeo: Vue (origin) -> BD (origin_address)
         Trip::create([
             'passenger_id' => Auth::id(),
-            
-            // Mapeo de nombres normalizados
             'origin_address' => $request->origin, 
             'destination_address' => $request->destination,
-            
-            // Coordenadas
             'origin_lat' => $request->origin_lat,
             'origin_lng' => $request->origin_lng,
             'destination_lat' => $request->destination_lat,
             'destination_lng' => $request->destination_lng,
-            
-            // Precio (Usamos price si viene, o amount, o 5.00 por defecto)
-            'price' => $request->price ?? $request->amount ?? 5.00,
-            
+            'price' => $request->price ?? 5.00,
             'payment_method' => $request->payment_method,
             'status' => 'pending',
+            'vehicle_type' => $request->vehicle_type ?? 'car', // Guardamos si pidió Moto o Carro
         ]);
 
-        // Redirigimos al Dashboard para ver la tarjeta del viaje creado
         return redirect()->route('dashboard')->with('success', '¡Viaje solicitado con éxito!');
     }
 
-    // --- FASE 3: ACEPTAR Y GESTIONAR VIAJE (Lógica Original Intacta) ---
+    // --- ACEPTAR Y GESTIONAR VIAJE ---
     
     public function accept($id)
     {
@@ -71,7 +62,6 @@ class TripController extends Controller
             'status' => 'accepted'
         ]);
 
-        // Usamos route('dashboard') para asegurar que se refresquen las tarjetas
         return redirect()->route('dashboard')->with('success', 'Has aceptado el viaje. ¡Ve a recoger al pasajero!');
     }
 
@@ -79,7 +69,6 @@ class TripController extends Controller
     {
         $trip = Trip::findOrFail($id);
         
-        // Validación de seguridad
         if (Auth::id() !== $trip->driver_id) {
             return back()->with('error', 'No estás autorizado.');
         }
@@ -88,7 +77,7 @@ class TripController extends Controller
         return redirect()->route('dashboard')->with('success', 'Viaje iniciado. ¡Conduce con cuidado!');
     }
 
-    // --- FASE 4: FINALIZACIÓN Y PAGO (Lógica Original Intacta) ---
+    // --- FINALIZACIÓN Y PAGO ---
 
     public function finishTrip($id)
     {
@@ -99,8 +88,6 @@ class TripController extends Controller
         }
 
         $trip->update(['status' => 'completed']);
-        
-        // Al terminar, redirigimos con success para que el Frontend muestre el Modal de Cobro
         return redirect()->route('dashboard')->with('success', 'Viaje finalizado. Procede al cobro.');
     }
 
@@ -109,13 +96,13 @@ class TripController extends Controller
         $trip = Trip::findOrFail($id);
         $user = Auth::user();
 
-        // Lógica de cancelación segura (Tuya)
+        // 1. Si el Pasajero cancela -> Se borra el viaje
         if ($user->role === 'passenger' && $trip->passenger_id === $user->id) {
             $trip->delete();
             return back()->with('success', 'Viaje eliminado.');
         }
+        // 2. Si el Chofer cancela -> Se libera el viaje (Re-emparejamiento)
         elseif ($user->role === 'driver' && $trip->driver_id === $user->id) {
-            // Si el chofer cancela, liberamos el viaje para otro
             $trip->update(['driver_id' => null, 'status' => 'pending']);
             return back()->with('success', 'Viaje liberado.');
         }
@@ -123,10 +110,32 @@ class TripController extends Controller
         return back()->with('error', 'No se pudo cancelar el viaje.');
     }
     
-    // Método extra para actualizar estatus genérico (si lo usas en el futuro)
+    // Método extra para actualizar estatus genérico
     public function updateStatus(Request $request, Trip $trip)
     {
         $trip->update(['status' => $request->status]);
         return back();
+    }
+
+    // 🔥 NUEVO MÉTODO: RASTREO GPS EN VIVO (Paso 4 Completado)
+    public function updateLocation(Request $request)
+    {
+        $request->validate([
+            'lat' => 'required|numeric',
+            'lng' => 'required|numeric',
+        ]);
+
+        $user = Auth::user();
+
+        if ($user->role === 'driver') {
+            $user->update([
+                'current_lat' => $request->lat,
+                'current_lng' => $request->lng
+            ]);
+            
+            return response()->json(['status' => 'ubicación actualizada']);
+        }
+
+        return response()->json(['status' => 'error', 'message' => 'No eres conductor'], 403);
     }
 }

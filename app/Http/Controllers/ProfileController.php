@@ -8,7 +8,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
-use Illuminate\Support\Facades\Storage; // <--- Importante para guardar fotos
+use Illuminate\Support\Facades\Storage; 
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -19,9 +19,16 @@ class ProfileController extends Controller
      */
     public function edit(Request $request): Response
     {
+        // 🔥 MODIFICADO: Buscamos las reseñas recibidas para mostrarlas en el perfil
+        $reviews = $request->user()->reviewsReceived()
+            ->with('reviewer:id,name') // Traemos solo el nombre de quien calificó
+            ->latest()
+            ->get();
+
         return Inertia::render('Profile/Edit', [
             'mustVerifyEmail' => $request->user() instanceof MustVerifyEmail,
             'status' => session('status'),
+            'reviews' => $reviews, // <--- Enviamos las reseñas a la vista (Vue)
         ]);
     }
 
@@ -77,7 +84,8 @@ class ProfileController extends Controller
         if ($request->hasFile('id_card_photo')) {
             $user->id_card_photo_path = $request->file('id_card_photo')->store('id-cards', 'public');
         }
-        // Biometría (Igual que antes)
+        
+        // Biometría (Aquí iría tu lógica de decodificación si la tienes implementada)
         if (!empty($validated['biometric_photo'])) {
              // ... (lógica de base64 decode)
         }

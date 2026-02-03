@@ -1,6 +1,6 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
-import { Head, useForm } from '@inertiajs/vue3';
+import { Head, useForm, router } from '@inertiajs/vue3';
 import { ref } from 'vue';
 import Modal from '@/Components/Modal.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
@@ -9,17 +9,30 @@ import DangerButton from '@/Components/DangerButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({
-    users: Array,
+    users: { type: Array, default: () => [] },           // Para Identidad (Docs)
+    pendingDrivers: { type: Array, default: () => [] }   // Para Nuevos Conductores (Ingreso)
 });
 
+// --- LÓGICA DE NUEVOS CONDUCTORES (SOLICITUDES BÁSICAS) ---
+const approveDriver = (id) => {
+    if (confirm('¿Aprobar conductor y permitirle trabajar?')) {
+        router.put(route('admin.approve', id));
+    }
+};
+
+const rejectDriver = (id) => {
+    if (confirm('¿Rechazar solicitud y eliminar usuario?')) {
+        router.delete(route('admin.reject', id));
+    }
+};
+
+// --- LÓGICA DE IDENTIDAD (TU MODAL ORIGINAL) ---
 const showingModal = ref(false);
 const selectedUser = ref(null);
 const rejectReason = ref('');
 
-// Función para limpiar la fecha (quita la hora)
 const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
-    // Toma solo los primeros 10 caracteres (YYYY-MM-DD)
     return dateString.substring(0, 10);
 };
 
@@ -36,14 +49,14 @@ const closeModal = () => {
 
 const form = useForm({});
 
-const approve = () => {
+const approveIdentity = () => {
     if (!confirm('¿Estás seguro de APROBAR esta identidad?')) return;
     form.post(route('admin.verifications.approve', selectedUser.value.id), {
         onSuccess: () => closeModal(),
     });
 };
 
-const reject = () => {
+const rejectIdentity = () => {
     if (!rejectReason.value) return alert('Debes escribir una razón para rechazar.');
     const rejectForm = useForm({ reason: rejectReason.value });
     rejectForm.post(route('admin.verifications.reject', selectedUser.value.id), {
@@ -53,21 +66,62 @@ const reject = () => {
 </script>
 
 <template>
-    <Head title="Verificaciones de Identidad" />
+    <Head title="Verificaciones" />
 
     <AuthenticatedLayout>
         <template #header>
-            <h2 class="font-semibold text-xl text-gray-800 leading-tight">👮 Centro de Verificaciones</h2>
+            <h2 class="font-semibold text-xl text-gray-800 leading-tight">🛡️ Centro de Verificaciones</h2>
         </template>
 
-        <div class="py-12">
-            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+        <div class="py-12 bg-gray-50 min-h-screen">
+            <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
+                
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-yellow-400">
+                    <div class="flex items-center gap-2 mb-4">
+                        <span class="text-2xl">🚖</span>
+                        <h3 class="font-bold text-lg text-gray-800">Solicitudes de Ingreso</h3>
+                        <span v-if="pendingDrivers.length > 0" class="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">
+                            {{ pendingDrivers.length }} Pendientes
+                        </span>
+                    </div>
+
+                    <div v-if="pendingDrivers.length === 0" class="text-gray-400 text-center py-6 border-2 border-dashed rounded-xl bg-gray-50">
+                        <p>No hay conductores nuevos esperando aprobación.</p>
+                    </div>
+
+                    <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div v-for="driver in pendingDrivers" :key="driver.id" class="border rounded-xl p-4 bg-white shadow-sm flex flex-col justify-between">
+                            <div class="mb-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <p class="font-bold text-lg text-gray-900">{{ driver.name }}</p>
+                                        <p class="text-sm text-gray-500">{{ driver.email }}</p>
+                                    </div>
+                                    <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded uppercase font-bold">Nuevo</span>
+                                </div>
+                                <p class="text-xs text-gray-400 mt-2">Registrado: {{ new Date(driver.created_at).toLocaleDateString() }}</p>
+                            </div>
+                            
+                            <div class="flex gap-2 border-t pt-3">
+                                <button @click="rejectDriver(driver.id)" class="flex-1 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-bold text-sm transition">
+                                    ❌ Rechazar
+                                </button>
+                                <button @click="approveDriver(driver.id)" class="flex-1 py-2 bg-black text-white rounded-lg hover:bg-gray-800 font-bold text-sm transition shadow-md">
+                                    ✅ Aprobar
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                     <div class="p-6 text-gray-900">
-                        <h3 class="text-lg font-bold mb-4">Solicitudes Pendientes ({{ users.length }})</h3>
+                        <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
+                            <span>🆔</span> Revisión de Documentos ({{ users.length }})
+                        </h3>
 
-                        <div v-if="users.length === 0" class="text-center py-10 text-gray-500">
-                            🎉 No hay solicitudes pendientes. ¡Todo al día!
+                        <div v-if="users.length === 0" class="text-center py-10 text-gray-500 border-2 border-dashed rounded-xl">
+                            🎉 No hay documentos pendientes de revisión.
                         </div>
 
                         <div v-else class="overflow-x-auto">
@@ -76,7 +130,7 @@ const reject = () => {
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cédula</th>
-                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha Solicitud</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
                                     </tr>
                                 </thead>
@@ -84,9 +138,6 @@ const reject = () => {
                                     <tr v-for="user in users" :key="user.id">
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
-                                                <div class="shrink-0 h-10 w-10">
-                                                    <img class="h-10 w-10 rounded-full object-cover" :src="user.profile_photo_path ? '/storage/' + user.profile_photo_path : 'https://ui-avatars.com/api/?name='+user.name" />
-                                                </div>
                                                 <div class="ml-4">
                                                     <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
                                                     <div class="text-sm text-gray-500">{{ user.email }}</div>
@@ -100,7 +151,7 @@ const reject = () => {
                                             {{ new Date(user.updated_at).toLocaleDateString() }}
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                            <button @click="inspectUser(user)" class="text-indigo-600 hover:text-indigo-900 font-bold">
+                                            <button @click="inspectUser(user)" class="text-indigo-600 hover:text-indigo-900 font-bold bg-indigo-50 px-3 py-1 rounded">
                                                 🔍 Inspeccionar
                                             </button>
                                         </td>
@@ -120,7 +171,6 @@ const reject = () => {
                 </h2>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    
                     <div class="space-y-4">
                         <div class="bg-gray-50 p-3 rounded border">
                             <span class="block text-xs text-gray-500 uppercase">Cédula Declarada</span>
@@ -134,25 +184,19 @@ const reject = () => {
                             <span class="block text-xs text-gray-500 uppercase">Teléfono</span>
                             <span class="text-lg font-bold">{{ selectedUser.phone_number }}</span>
                         </div>
-                        <div class="bg-gray-50 p-3 rounded border">
-                            <span class="block text-xs text-gray-500 uppercase">Vencimiento Documento</span>
-                            <span :class="{'text-red-600 font-bold': new Date(selectedUser.id_card_expires_at) < new Date(), 'text-green-600 font-bold': new Date(selectedUser.id_card_expires_at) >= new Date()}">
-                                {{ formatDate(selectedUser.id_card_expires_at) }}
-                            </span>
-                        </div>
                     </div>
 
                     <div class="space-y-4">
                         <div>
-                            <span class="block text-xs text-gray-500 uppercase mb-1">Foto Documento (Cédula)</span>
+                            <span class="block text-xs text-gray-500 uppercase mb-1">Foto Documento</span>
                             <div class="border rounded p-1 bg-gray-100 flex justify-center">
-                                <img :src="'/storage/' + selectedUser.id_card_photo_path" class="h-40 object-contain cursor-pointer hover:scale-105 transition" onclick="window.open(this.src)" title="Click para ampliar">
+                                <img :src="'/storage/' + selectedUser.id_card_photo_path" class="h-40 object-contain cursor-pointer hover:scale-105 transition" onclick="window.open(this.src)">
                             </div>
                         </div>
                         <div>
-                            <span class="block text-xs text-gray-500 uppercase mb-1">Biometría (Selfie)</span>
+                            <span class="block text-xs text-gray-500 uppercase mb-1">Biometría</span>
                             <div class="border rounded p-1 bg-gray-100 flex justify-center">
-                                <img :src="'/storage/' + selectedUser.biometric_photo_path" class="h-40 object-contain cursor-pointer hover:scale-105 transition" onclick="window.open(this.src)" title="Click para ampliar">
+                                <img :src="'/storage/' + selectedUser.biometric_photo_path" class="h-40 object-contain cursor-pointer hover:scale-105 transition" onclick="window.open(this.src)">
                             </div>
                         </div>
                     </div>
@@ -160,21 +204,13 @@ const reject = () => {
 
                 <div class="mt-8 pt-4 border-t border-gray-200">
                     <h3 class="text-sm font-bold text-gray-900 mb-2">Veredicto del Admin</h3>
-                    
                     <div class="flex flex-col md:flex-row gap-4">
-                        <PrimaryButton @click="approve" class="bg-green-600 hover:bg-green-700 justify-center w-full md:w-auto h-12">
+                        <PrimaryButton @click="approveIdentity" class="bg-green-600 hover:bg-green-700 justify-center w-full md:w-auto h-12">
                             ✅ APROBAR IDENTIDAD
                         </PrimaryButton>
-
                         <div class="flex-1 flex gap-2">
-                            <TextInput 
-                                v-model="rejectReason" 
-                                placeholder="Razón del rechazo (Ej: Foto borrosa...)" 
-                                class="w-full"
-                            />
-                            <DangerButton @click="reject" class="h-12 whitespace-nowrap">
-                                ❌ Rechazar
-                            </DangerButton>
+                            <TextInput v-model="rejectReason" placeholder="Razón del rechazo..." class="w-full" />
+                            <DangerButton @click="rejectIdentity" class="h-12 whitespace-nowrap">❌ Rechazar</DangerButton>
                         </div>
                     </div>
                 </div>
