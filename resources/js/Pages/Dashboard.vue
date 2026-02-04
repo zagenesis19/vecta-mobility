@@ -4,9 +4,11 @@ import { Head, usePage } from '@inertiajs/vue3';
 import { onMounted, onUnmounted } from 'vue';
 import { router } from '@inertiajs/vue3';
 
-import AdminDashboard from './Dashboard/AdminDashboard.vue';
-import DriverDashboard from './Dashboard/DriverDashboard.vue';
-import PassengerDashboard from './Dashboard/PassengerDashboard.vue';
+import { defineAsyncComponent } from 'vue';
+
+const AdminDashboard = defineAsyncComponent(() => import('./Dashboard/AdminDashboard.vue'));
+const DriverDashboard = defineAsyncComponent(() => import('./Dashboard/DriverDashboard.vue'));
+const PassengerDashboard = defineAsyncComponent(() => import('./Dashboard/PassengerDashboard.vue'));
 
 const props = defineProps({
     userRole: String, // 'admin', 'driver', 'passenger'
