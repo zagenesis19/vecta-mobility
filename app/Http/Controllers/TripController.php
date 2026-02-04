@@ -73,7 +73,10 @@ class TripController extends Controller
             return back()->with('error', 'No estás autorizado.');
         }
 
-        $trip->update(['status' => 'in_progress']);
+        $trip->update([
+            'status' => 'in_progress',
+            'started_at' => now()
+        ]);
         return redirect()->route('dashboard')->with('success', 'Viaje iniciado. ¡Conduce con cuidado!');
     }
 
@@ -87,7 +90,17 @@ class TripController extends Controller
             return back()->with('error', 'No estás autorizado.');
         }
 
-        $trip->update(['status' => 'completed']);
+        // Calcular duración si hay started_at
+        $durationMinutes = null;
+        if ($trip->started_at) {
+            $durationMinutes = now()->diffInMinutes($trip->started_at);
+        }
+
+        $trip->update([
+            'status' => 'completed',
+            'finished_at' => now(),
+            'duration_minutes' => $durationMinutes
+        ]);
         return redirect()->route('dashboard')->with('success', 'Viaje finalizado. Procede al cobro.');
     }
 
@@ -95,6 +108,11 @@ class TripController extends Controller
     {
         $trip = Trip::findOrFail($id);
         $user = Auth::user();
+
+        // Solo permitir cancelación si el viaje está en pending o accepted
+        if (!in_array($trip->status, ['pending', 'accepted'])) {
+            return back()->with('error', 'No se puede cancelar un viaje en curso o completado.');
+        }
 
         // 1. Si el Pasajero cancela -> Se borra el viaje
         if ($user->role === 'passenger' && $trip->passenger_id === $user->id) {
@@ -108,6 +126,79 @@ class TripController extends Controller
         }
         
         return back()->with('error', 'No se pudo cancelar el viaje.');
+    }
+
+    // Nuevo método: Cancelar con motivo
+    public function cancelWithReason(Request $request, $id)
+    {
+        $request->validate([
+            'reason' => 'required|string|max:255',
+        ]);
+
+        $trip = Trip::findOrFail($id);
+        $user = Auth::user();
+
+        // Solo permitir cancelación si el viaje está en pending o accepted
+        if (!in_array($trip->status, ['pending', 'accepted'])) {
+            return back()->with('error', 'No se puede cancelar un viaje en curso o completado.');
+        }
+
+        // Determinar quién cancela
+        $cancelledBy = $user->role === 'passenger' ? 'passenger' : 'driver';
+
+        // Actualizar el viaje con el motivo de cancelación
+        $trip->update([
+            'status' => 'cancelled',
+            'cancellation_reason' => $request->reason,
+            'cancelled_by' => $cancelledBy,
+            'cancelled_at' => now(),
+        ]);
+
+        return redirect()->route('dashboard')->with('success', 'Viaje cancelado.');
+    }
+
+    // Nuevo método: Obtener historial de viajes
+    public function history()
+    {
+        $user = Auth::user();
+        
+        if ($user->role === 'passenger') {
+            $trips = Trip::where('passenger_id', $user->id)
+                ->whereIn('status', ['completed', 'cancelled'])
+                ->with(['driver'])
+                ->orderBy('updated_at', 'desc')
+                ->get();
+        } else {
+            $trips = Trip::where('driver_id', $user->id)
+                ->whereIn('status', ['completed', 'cancelled'])
+                ->with(['passenger'])
+                ->orderBy('updated_at', 'desc')
+                ->get();
+        }
+
+        return Inertia::render('TripHistory', [
+            'trips' => $trips,
+            'userRole' => $user->role,
+        ]);
+    }
+
+    // Nuevo método: Confirmar pago móvil
+    public function confirmPayment($id)
+    {
+        $trip = Trip::findOrFail($id);
+        $user = Auth::user();
+
+        // Solo el conductor puede confirmar el pago
+        if ($user->role !== 'driver' || $trip->driver_id !== $user->id) {
+            return back()->with('error', 'No estás autorizado.');
+        }
+
+        $trip->update([
+            'payment_confirmed' => true,
+            'payment_confirmed_at' => now(),
+        ]);
+
+        return back()->with('success', 'Pago confirmado.');
     }
     
     // Método extra para actualizar estatus genérico

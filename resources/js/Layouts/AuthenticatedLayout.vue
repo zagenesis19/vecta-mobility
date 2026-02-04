@@ -33,6 +33,13 @@ const showingNavigationDropdown = ref(false);
                                     Dashboard
                                 </NavLink>
                                 <NavLink 
+                                    v-if="$page.props.auth.user.role !== 'admin'"
+                                    :href="route('trip.history')" 
+                                    :active="route().current('trip.history')"
+                                >
+                                    📚 Historial
+                                </NavLink>
+                                <NavLink 
                                         v-if="$page.props.auth.user.role === 'admin'"
                                         :href="route('admin.verifications')" 
                                         :active="route().current('admin.verifications')"
@@ -65,7 +72,20 @@ const showingNavigationDropdown = ref(false);
              </svg>
         </div>
 
-        {{ $page.props.auth.user.name }}
+        <div class="flex flex-col items-start">
+            <div class="flex items-center gap-1">
+                <span class="font-medium">{{ $page.props.auth.user.name }}</span>
+            </div>
+            <!-- Calificación por estrellas -->
+            <div 
+                v-if="$page.props.auth.user.role === 'driver' || $page.props.auth.user.role === 'passenger'"
+                class="flex items-center gap-1 text-xs"
+            >
+                <span class="text-yellow-500">★</span>
+                <span class="font-bold text-gray-700">{{ $page.props.auth.user.average_rating > 0 ? $page.props.auth.user.average_rating : '5.0' }}</span>
+                <span class="text-gray-500">({{ $page.props.auth.user.total_ratings }})</span>
+            </div>
+        </div>
 
         <svg
             class="ms-2 -me-0.5 h-4 w-4"
@@ -135,6 +155,13 @@ const showingNavigationDropdown = ref(false);
                         <ResponsiveNavLink :href="route('dashboard')" :active="route().current('dashboard')">
                             Dashboard
                         </ResponsiveNavLink>
+                        <ResponsiveNavLink 
+                            v-if="$page.props.auth.user.role !== 'admin'"
+                            :href="route('trip.history')" 
+                            :active="route().current('trip.history')"
+                        >
+                            📚 Historial
+                        </ResponsiveNavLink>
                     </div>
 
                     <!-- Responsive Settings Options -->
@@ -144,6 +171,15 @@ const showingNavigationDropdown = ref(false);
                                 {{ $page.props.auth.user.name }}
                             </div>
                             <div class="font-medium text-sm text-gray-500">{{ $page.props.auth.user.email }}</div>
+                            <!-- Calificación por estrellas en móvil -->
+                            <div 
+                                v-if="$page.props.auth.user.role === 'driver' || $page.props.auth.user.role === 'passenger'"
+                                class="flex items-center gap-1 text-sm mt-1"
+                            >
+                                <span class="text-yellow-500">★</span>
+                                <span class="font-bold text-gray-700">{{ $page.props.auth.user.average_rating > 0 ? $page.props.auth.user.average_rating : '5.0' }}</span>
+                                <span class="text-gray-500">({{ $page.props.auth.user.total_ratings }} calificaciones)</span>
+                            </div>
                         </div>
 
                         <div class="mt-3 space-y-1">

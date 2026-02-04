@@ -31,6 +31,35 @@ class Trip extends Model
         'price',
         'payment_method',
         'distance', // Agregado por si acaso, ya que está en la tabla
+        'vehicle_type', // Tipo de vehículo solicitado
+        
+        // Campos de cancelación
+        'cancellation_reason',
+        'cancelled_by',
+        'cancelled_at',
+        
+        // Campos de confirmación de pago
+        'payment_confirmed',
+        'payment_confirmed_at',
+        
+        // Campos de duración del viaje
+        'started_at',
+        'finished_at',
+        'duration_minutes',
+
+        // Calificaciones
+        'driver_rating',
+        'driver_comment',
+        'passenger_rating',
+        'passenger_comment',
+    ];
+
+    protected $casts = [
+        'payment_confirmed' => 'boolean',
+        'cancelled_at' => 'datetime',
+        'payment_confirmed_at' => 'datetime',
+        'started_at' => 'datetime',
+        'finished_at' => 'datetime',
     ];
 
     // Relación con el Pasajero (Lógica intacta)

@@ -26,76 +26,9 @@ Route::get('/', function () {
 });
 
 // 2. DASHBOARD INTELIGENTE
-Route::get('/dashboard', function () {
-    $user = auth()->user();
-
-    // A. ADMINISTRADOR
-    if ($user->role === 'admin' || $user->email === 'admin@vecta.com') {
-        $trips = Trip::with(['passenger', 'driver'])->latest()->get(); 
-        
-        // 🔥 Obtener lat/lng de conductores para el Mapa Térmico
-        $driverLocations = User::where('role', 'driver')
-            ->whereNotNull('current_lat')
-            ->whereNotNull('current_lng')
-            ->get(['current_lat', 'current_lng'])
-            ->map(function($driver) {
-                return [$driver->current_lat, $driver->current_lng];
-            });
-        
-        return Inertia::render('Dashboard', [
-            'trips' => $trips,
-            'userRole' => 'admin',
-            'driverLocations' => $driverLocations 
-        ]);
-    }
-
-    // B. CONDUCTOR
-    if ($user->role === 'driver') {
-        $driverType = $user->vehicle ? $user->vehicle->type : 'car'; 
-
-        $availableTrips = Trip::where('status', 'pending')
-            ->whereNull('driver_id')
-            ->where('passenger_id', '!=', $user->id)
-            ->where('vehicle_type', $driverType)
-            ->with('passenger')
-            ->latest()
-            ->get();
-
-        $myTrips = Trip::where('driver_id', $user->id)
-            ->with('passenger')
-            ->latest()
-            ->take(10)
-            ->get();
-
-        return Inertia::render('Dashboard', [
-            'trips' => $myTrips,
-            'myTrips' => $myTrips,
-            'availableTrips' => $availableTrips,
-            'userRole' => 'driver',
-            'isApproved' => (bool) $user->is_approved, 
-        ]);
-    }
-    
-    // C. PASAJERO
-    $trips = Trip::where('passenger_id', $user->id)
-        ->with('driver')
-        ->latest()
-        ->take(5)
-        ->get();
-
-    $currentTrip = Trip::where('passenger_id', $user->id)
-        ->whereIn('status', ['pending', 'accepted', 'in_progress', 'completed'])
-        ->with('driver')
-        ->latest()
-        ->first();
-
-    return Inertia::render('Dashboard', [
-        'trips' => $trips,       
-        'currentTrip' => $currentTrip, 
-        'userRole' => 'passenger'
-    ]);
-
-})->middleware(['auth'])->name('dashboard');
+Route::get('/dashboard', [App\Http\Controllers\DashboardController::class, 'index'])
+    ->middleware(['auth'])
+    ->name('dashboard');
 
 // 3. GRUPO DE RUTAS AUTENTICADAS
 Route::middleware('auth')->group(function () {
@@ -104,6 +37,7 @@ Route::middleware('auth')->group(function () {
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::post('/profile/identity', [ProfileController::class, 'updateIdentity'])->name('profile.identity.update');
+    Route::post('/driver/documents', [ProfileController::class, 'updateDriverDocuments'])->name('driver.documents.update');
     
     Route::get('/request-ride', [TripController::class, 'create'])->name('trips.create');
     Route::post('/request-ride', [TripController::class, 'store'])->name('trips.store');
@@ -113,6 +47,11 @@ Route::middleware('auth')->group(function () {
     Route::put('/trip/{id}/start', [TripController::class, 'startTrip'])->name('trips.start');
     Route::put('/trip/{id}/finish', [TripController::class, 'finishTrip'])->name('trips.finish');
     Route::post('/driver/location', [TripController::class, 'updateLocation'])->name('driver.location');
+
+    // Nuevas rutas para cancelación con motivo, historial y pago
+    Route::post('/trip/{id}/cancel-with-reason', [TripController::class, 'cancelWithReason'])->name('trip.cancelWithReason');
+    Route::get('/trip-history', [TripController::class, 'history'])->name('trip.history');
+    Route::post('/trip/{id}/confirm-payment', [TripController::class, 'confirmPayment'])->name('trip.confirmPayment');
 
     // ⭐ SISTEMA DE CALIFICACIONES (NUEVO)
     Route::post('/trip/{trip}/rate', [ReviewController::class, 'store'])->name('trip.rate');

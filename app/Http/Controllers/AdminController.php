@@ -20,19 +20,13 @@ class AdminController extends Controller
      */
     public function verifications()
     {
-        // 1. Usuarios con documentos de identidad pendientes (Tu lógica original)
+        // 1. Usuarios con documentos de identidad pendientes
         $users = User::where('identity_status', 'pending')
                      ->orderBy('updated_at', 'asc')
                      ->get();
 
-        // 2. NUEVO: Conductores registrados esperando aprobación básica (Movido del Dashboard)
-        $pendingDrivers = User::where('role', 'driver')
-                              ->where('is_approved', false)
-                              ->get();
-
         return Inertia::render('Admin/Verifications', [
-            'users' => $users,              // Para la pestaña de Documentos
-            'pendingDrivers' => $pendingDrivers // Para la pestaña de Solicitudes Nuevas
+            'users' => $users,              // Identidad (Docs)
         ]);
     }
 

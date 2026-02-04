@@ -33,7 +33,8 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $request->user() ? $request->user()->fresh() : null, // ✅ Correcto: Esto refresca la foto
+                // Usamos fresh() para asegurarnos de que los 'appends' (average_rating) se calculen con datos frescos de la BD
+                'user' => $request->user() ? $request->user()->fresh()->toArray() : null,
             ],
             'ziggy' => fn () => [
                 ...(new Ziggy)->toArray(),

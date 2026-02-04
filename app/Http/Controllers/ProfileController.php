@@ -70,8 +70,13 @@ class ProfileController extends Controller
             'biometric_photo' => ['nullable', 'string'],
         ]);
 
-        // Guardar Textos
-        $user->phone_number = $validated['phone_number'];
+        // Sanitizar Teléfono: Solo dejar los últimos 10 dígitos (quitar prefijos si vienen)
+        $phoneNumber = preg_replace('/[^0-9]/', '', $validated['phone_number']);
+        if (strlen($phoneNumber) > 10) {
+            $phoneNumber = substr($phoneNumber, -10);
+        }
+        $user->phone_number = $phoneNumber;
+        
         $user->id_card_number = $validated['id_card_number'];
         if (isset($validated['birth_date'])) $user->birth_date = $validated['birth_date']; // <--- NUEVO
         if (isset($validated['id_card_expires_at'])) $user->id_card_expires_at = $validated['id_card_expires_at'];
@@ -97,6 +102,45 @@ class ProfileController extends Controller
         $user->save();
 
         return Redirect::route('profile.edit')->with('status', 'identity-updated');
+    }
+
+    /**
+     * Subida de documentos del conductor (Dashboard - Modal)
+     */
+    public function updateDriverDocuments(Request $request): RedirectResponse
+    {
+        $request->validate([
+            'profile_photo' => 'nullable|image|max:5120',
+            'license_file' => 'nullable|image|max:5120',
+            'id_card_photo' => 'nullable|image|max:5120',
+            'medical_certificate' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'rif_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+        ]);
+
+        $user = $request->user();
+
+        // Helper para subir y reemplazar
+        $upload = function($field, $folder, $dbCol) use ($request, $user) {
+            if ($request->hasFile($field)) {
+                if ($user->$dbCol) Storage::disk('public')->delete($user->$dbCol);
+                $user->$dbCol = $request->file($field)->store($folder, 'public');
+            }
+        };
+
+        $upload('profile_photo', 'profile-photos', 'profile_photo_path');
+        $upload('license_file', 'licenses', 'license_file');
+        $upload('id_card_photo', 'id-cards', 'id_card_photo_path');
+        $upload('medical_certificate', 'medical-certificates', 'medical_certificate_file');
+        $upload('rif_file', 'rifs', 'rif_file');
+
+        // Si completó todo, cambiamos estatus a pending para que el admin revise
+        if ($user->profile_photo_path && $user->license_file && $user->id_card_photo_path && $user->medical_certificate_file && $user->rif_file) {
+            $user->identity_status = 'pending';
+        }
+
+        $user->save();
+
+        return Redirect::back()->with('status', 'documents-updated');
     }
 
     /**

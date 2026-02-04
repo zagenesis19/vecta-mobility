@@ -1,7 +1,7 @@
 <script setup>
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, useForm, router } from '@inertiajs/vue3';
-import { ref } from 'vue';
+import { ref, computed } from 'vue';
 import Modal from '@/Components/Modal.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
@@ -9,24 +9,19 @@ import DangerButton from '@/Components/DangerButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 
 const props = defineProps({
-    users: { type: Array, default: () => [] },           // Para Identidad (Docs)
-    pendingDrivers: { type: Array, default: () => [] }   // Para Nuevos Conductores (Ingreso)
+    users: { type: Array, default: () => [] },
 });
 
-// --- LÓGICA DE NUEVOS CONDUCTORES (SOLICITUDES BÁSICAS) ---
-const approveDriver = (id) => {
-    if (confirm('¿Aprobar conductor y permitirle trabajar?')) {
-        router.put(route('admin.approve', id));
-    }
-};
+// --- LÓGICA DE FILTRADO ---
+const filterRole = ref('all'); // all, driver, passenger
 
-const rejectDriver = (id) => {
-    if (confirm('¿Rechazar solicitud y eliminar usuario?')) {
-        router.delete(route('admin.reject', id));
-    }
-};
+const filteredUsers = computed(() => {
+    const list = props.users || [];
+    if (filterRole.value === 'all') return list;
+    return list.filter(u => u.role === filterRole.value);
+});
 
-// --- LÓGICA DE IDENTIDAD (TU MODAL ORIGINAL) ---
+// --- LÓGICA DE IDENTIDAD ---
 const showingModal = ref(false);
 const selectedUser = ref(null);
 const rejectReason = ref('');
@@ -76,52 +71,36 @@ const rejectIdentity = () => {
         <div class="py-12 bg-gray-50 min-h-screen">
             <div class="max-w-7xl mx-auto sm:px-6 lg:px-8 space-y-8">
                 
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6 border-l-4 border-yellow-400">
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="text-2xl">🚖</span>
-                        <h3 class="font-bold text-lg text-gray-800">Solicitudes de Ingreso</h3>
-                        <span v-if="pendingDrivers.length > 0" class="bg-red-500 text-white text-xs px-2 py-1 rounded-full font-bold animate-pulse">
-                            {{ pendingDrivers.length }} Pendientes
-                        </span>
-                    </div>
-
-                    <div v-if="pendingDrivers.length === 0" class="text-gray-400 text-center py-6 border-2 border-dashed rounded-xl bg-gray-50">
-                        <p>No hay conductores nuevos esperando aprobación.</p>
-                    </div>
-
-                    <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div v-for="driver in pendingDrivers" :key="driver.id" class="border rounded-xl p-4 bg-white shadow-sm flex flex-col justify-between">
-                            <div class="mb-4">
-                                <div class="flex justify-between items-start">
-                                    <div>
-                                        <p class="font-bold text-lg text-gray-900">{{ driver.name }}</p>
-                                        <p class="text-sm text-gray-500">{{ driver.email }}</p>
-                                    </div>
-                                    <span class="bg-yellow-100 text-yellow-800 text-xs px-2 py-1 rounded uppercase font-bold">Nuevo</span>
-                                </div>
-                                <p class="text-xs text-gray-400 mt-2">Registrado: {{ new Date(driver.created_at).toLocaleDateString() }}</p>
-                            </div>
+                <!-- LISTA DE IDENTIDAD (PASAJEROS Y CONDUCTORES) -->
+                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
+                    <div class="p-6 text-gray-900">
+                        <div class="flex flex-col md:flex-row justify-between items-center mb-6">
+                            <h3 class="text-lg font-bold flex items-center gap-2">
+                                <span>🆔</span> Revisión de Documentos ({{ filteredUsers.length }})
+                            </h3>
                             
-                            <div class="flex gap-2 border-t pt-3">
-                                <button @click="rejectDriver(driver.id)" class="flex-1 py-2 bg-white border border-red-200 text-red-600 rounded-lg hover:bg-red-50 font-bold text-sm transition">
-                                    ❌ Rechazar
+                            <!-- FILTROS -->
+                            <div class="flex gap-2 mt-4 md:mt-0">
+                                <button @click="filterRole = 'all'" 
+                                    class="px-4 py-1.5 rounded-full text-sm font-bold border transition-all" 
+                                    :class="filterRole === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'">
+                                    Todos
                                 </button>
-                                <button @click="approveDriver(driver.id)" class="flex-1 py-2 bg-black text-white rounded-lg hover:bg-gray-800 font-bold text-sm transition shadow-md">
-                                    ✅ Aprobar
+                                <button @click="filterRole = 'driver'" 
+                                    class="px-4 py-1.5 rounded-full text-sm font-bold border transition-all"
+                                    :class="filterRole === 'driver' ? 'bg-yellow-100 text-yellow-800 border-yellow-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'">
+                                    🚖 Conductores
+                                </button>
+                                <button @click="filterRole = 'passenger'" 
+                                    class="px-4 py-1.5 rounded-full text-sm font-bold border transition-all"
+                                    :class="filterRole === 'passenger' ? 'bg-green-100 text-green-800 border-green-200 shadow-sm' : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'">
+                                    👋 Pasajeros
                                 </button>
                             </div>
                         </div>
-                    </div>
-                </div>
 
-                <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
-                    <div class="p-6 text-gray-900">
-                        <h3 class="text-lg font-bold mb-4 flex items-center gap-2">
-                            <span>🆔</span> Revisión de Documentos ({{ users.length }})
-                        </h3>
-
-                        <div v-if="users.length === 0" class="text-center py-10 text-gray-500 border-2 border-dashed rounded-xl">
-                            🎉 No hay documentos pendientes de revisión.
+                        <div v-if="filteredUsers.length === 0" class="text-center py-10 text-gray-500 border-2 border-dashed rounded-xl bg-gray-50">
+                            {{ props.users.length > 0 ? 'No hay resultados con este filtro.' : '🎉 No hay documentos pendientes de revisión.' }}
                         </div>
 
                         <div v-else class="overflow-x-auto">
@@ -129,20 +108,28 @@ const rejectIdentity = () => {
                                 <thead class="bg-gray-50">
                                     <tr>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Usuario</th>
+                                        <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Rol</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Cédula</th>
                                         <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
                                         <th class="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Acción</th>
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
-                                    <tr v-for="user in users" :key="user.id">
+                                    <tr v-for="user in filteredUsers" :key="user.id">
                                         <td class="px-6 py-4 whitespace-nowrap">
                                             <div class="flex items-center">
                                                 <div class="ml-4">
                                                     <div class="text-sm font-medium text-gray-900">{{ user.name }}</div>
                                                     <div class="text-sm text-gray-500">{{ user.email }}</div>
+                                                    <div class="text-xs text-blue-500">{{ user.phone_number }}</div>
                                                 </div>
                                             </div>
+                                        </td>
+                                        <td class="px-6 py-4 whitespace-nowrap">
+                                            <span class="px-2 py-1 text-xs rounded-full font-bold uppercase" 
+                                                :class="user.role === 'driver' ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'">
+                                                {{ user.role === 'driver' ? 'Conductor' : 'Pasajero' }}
+                                            </span>
                                         </td>
                                         <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                                             {{ user.id_card_number || 'N/A' }}

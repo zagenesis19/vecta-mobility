@@ -44,7 +44,7 @@ const user = usePage().props.auth.user;
                                 </p>
                             </div>
                             <div class="text-right bg-yellow-50 px-4 py-2 rounded-xl border border-yellow-100">
-                                <div class="text-4xl font-black text-yellow-500">{{ user.average_rating }}</div>
+                                <div class="text-4xl font-black text-yellow-500">{{ user.average_rating > 0 ? user.average_rating : '5.0' }}</div>
                                 <div class="text-xs text-gray-400 uppercase tracking-wide font-bold">Promedio</div>
                             </div>
                         </header>

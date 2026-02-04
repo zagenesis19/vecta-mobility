@@ -13,9 +13,9 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     /**
-     * IMPORTANTE: Agregamos esto para que el "average_rating" viaje siempre a Vue.
+     * IMPORTANTE: Agregamos esto para que las estrellas viajen siempre a Vue.
      */
-    protected $appends = ['average_rating'];
+    protected $appends = ['average_rating', 'total_ratings'];
 
     /**
      * The attributes that are mass assignable.
@@ -36,14 +36,24 @@ class User extends Authenticatable
         'id_card_number',
         'birth_date',
         'id_card_photo_path',
+        'medical_certificate_file',
+        'rif_file',
+        
         'identity_status',
         'identity_feedback',
         'profile_photo_path',
         'biometric_photo_path',
         
-        // 🔥 GPS EN VIVO (Agregado en Paso 2)
+        // 🔥 GPS EN VIVO
         'current_lat',
         'current_lng',
+
+        // 🔥 NUEVOS CAMPOS DE PERFIL
+        'gender',
+        'terms_accepted',
+        'country',
+        'state',
+        'municipality',
     ];
 
     /**
@@ -66,6 +76,7 @@ class User extends Authenticatable
         'password' => 'hashed',
         'phone_verified_at' => 'datetime',
         'is_approved' => 'boolean',
+        'terms_accepted' => 'boolean',
         'current_lat' => 'decimal:7',
         'current_lng' => 'decimal:7',
     ];
@@ -92,6 +103,18 @@ class User extends Authenticatable
     public function getAverageRatingAttribute()
     {
         // Si no tiene reviews, le damos 5.0 por defecto para animarlo
-        return round($this->reviewsReceived()->avg('rating') ?: 5.0, 1);
+        // PERO solo si queremos que aparezca algo. Si queremos que diga "Sin calificaciones" 
+        // cuando no hay nada, deberíamos retornar null o 0.
+        // El usuario dice que ve "Sin calificaciones", así que el código actual con 5.0 
+        // debería mostrar 5.0. 
+        // Investigando: si avg() es null, retorna 5.0.
+        $avg = $this->reviewsReceived()->avg('rating');
+        return $avg ? round($avg, 1) : 0; // Cambiamos a 0 si no hay para que el v-if detecte "sin calificaciones"
+    }
+
+    // Atributo Calculado: Total de calificaciones
+    public function getTotalRatingsAttribute()
+    {
+        return $this->reviewsReceived()->count();
     }
 }

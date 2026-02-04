@@ -61,12 +61,30 @@ onMounted(() => {
     }
     // 2. Separar Teléfono
     if (user.phone_number) {
-        const found = countryCodes.find(c => user.phone_number.startsWith(c.code));
-        if (found) {
-            phoneCode.value = found.code;
-            phoneNumber.value = user.phone_number.replace(found.code, '').trim();
-        } else {
-            phoneNumber.value = user.phone_number;
+        let phone = user.phone_number.trim();
+        // Si empieza por +58 o 58 (pero asumiendo que el resto son 10 dígitos)
+        const possibleCodes = ['+58', '58', '+1', '1', '+57', '57', '+34', '34'];
+        let matched = false;
+
+        for (const c of countryCodes) {
+            if (phone.startsWith(c.code)) {
+                phoneCode.value = c.code;
+                phoneNumber.value = phone.replace(c.code, '').trim();
+                matched = true;
+                break;
+            }
+            // Caso sin el +
+            const bare = c.code.replace('+', '');
+            if (phone.startsWith(bare) && phone.length > 10) {
+                 phoneCode.value = c.code;
+                 phoneNumber.value = phone.substring(bare.length).trim();
+                 matched = true;
+                 break;
+            }
+        }
+
+        if (!matched) {
+            phoneNumber.value = phone;
         }
     }
 });
