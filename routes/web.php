@@ -17,11 +17,33 @@ use App\Models\Trip;
 */
 
 Route::get('/', function () {
+    // Consultar conductores aprobados agrupados por municipio
+    $driversByMunicipality = User::where('role', 'driver')
+        ->where('is_approved', true)
+        ->select('municipality', \DB::raw('count(*) as count'))
+        ->groupBy('municipality')
+        ->pluck('count', 'municipality')
+        ->toArray();
+    
+    // Asegurar que todos los municipios estén presentes (incluso con 0 conductores)
+    $municipalities = [
+        'Charallave' => 0,
+        'Cúa' => 0,
+        'Ocumare del Tuy' => 0,
+        'San Francisco de Yare' => 0,
+        'Santa Teresa del Tuy' => 0,
+        'Santa Lucía del Tuy' => 0,
+    ];
+    
+    // Combinar con los datos reales
+    $driverStats = array_merge($municipalities, $driversByMunicipality);
+    
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),
         'laravelVersion' => Application::VERSION,
         'phpVersion' => PHP_VERSION,
+        'driverStats' => $driverStats,
     ]);
 });
 
