@@ -4,7 +4,7 @@ Sistema de gestión de transporte.
 
 ## 🛠️ Tecnologías Utilizadas (Stack TALL/VILT)
 
-* **Backend:** Laravel 10 (PHP 8.1+)
+* **Backend:** Laravel 10 (PHP 8.2+)
 * **Frontend:** Vue.js 3 (Composition API)
 * **Estilos:** Tailwind CSS
 * **Comunicación:** Inertia.js
@@ -15,7 +15,7 @@ Sistema de gestión de transporte.
 ## 📋 Requisitos Previos
 
 Antes de instalar, asegúrate de tener en tu computadora:
-1.  **PHP** >= 8.1
+1.  **PHP** >= 8.2
 2.  **Composer** (Gestor de paquetes de PHP)
 3.  **Node.js** y **NPM** (Para el Frontend)
 4.  **MySQL** (XAMPP, Laragon o similar)

@@ -6,7 +6,7 @@ import TextInput from '@/Components/TextInput.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import SecondaryButton from '@/Components/SecondaryButton.vue';
 import InputError from '@/Components/InputError.vue';
-import CameraCapture from '@/Components/CameraCapture.vue';
+import IdentityVerificationModal from '@/Components/IdentityVerification/IdentityVerificationModal.vue';
 
 const user = usePage().props.auth.user;
 
@@ -24,7 +24,7 @@ const isPhoneLocked = computed(() => form.processing);
 // MODOS DE EDICIÓN
 const editingProfilePhoto = ref(false);
 const editingIdCard = ref(false);
-const editingBiometric = ref(false);
+const showVerificationModal = ref(false);
 
 // VARIABLES
 const expiryMonth = ref('');
@@ -113,7 +113,11 @@ watch([expiryMonth, expiryYear], () => {
 
 const handleProfilePhotoChange = (e) => form.profile_photo = e.target.files[0];
 const handleIdCardPhotoChange = (e) => form.id_card_photo = e.target.files[0];
-const handleBiometricCapture = (base64) => form.biometric_photo = base64;
+
+const handleVerificationComplete = ({ idCard, biometric }) => {
+    form.id_card_photo = idCard; // Base64 string
+    form.biometric_photo = biometric; // Base64 string
+};
 
 const isIdCardExpired = computed(() => {
     if (!expiryMonth.value || !expiryYear.value) return true;
@@ -145,7 +149,6 @@ const submit = () => {
             form.reset('profile_photo', 'id_card_photo', 'biometric_photo');
             editingProfilePhoto.value = false;
             editingIdCard.value = false;
-            editingBiometric.value = false;
         },
     });
 };
@@ -184,7 +187,7 @@ const submit = () => {
 
                 <div class="grid grid-cols-1 md:grid-cols-12 gap-6">
                     
-                    <div class="md:col-span-7 space-y-6">
+                    <div class="md:col-span-12 lg:col-span-7 space-y-6">
                         
                         <div>
                             <InputLabel value="Número de Teléfono (WhatsApp)" class="mb-1" />
@@ -262,57 +265,56 @@ const submit = () => {
                         </div>
                     </div>
 
-                    <div class="md:col-span-5 flex flex-col">
-                        <InputLabel value="Foto del Documento" class="mb-2" />
-                        <div class="flex-1 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50 flex flex-col items-center justify-center p-4 min-h-[200px]">
-                            
-                            <div v-if="user.id_card_photo_path && !editingIdCard" class="text-center w-full">
-                                <img :src="'/storage/' + user.id_card_photo_path" class="h-32 object-contain mx-auto rounded shadow-sm mb-3 hover:scale-105 transition">
-                                <p v-if="!isIdCardExpired" class="text-xs text-green-600 font-bold mb-2 bg-green-50 px-2 py-1 rounded inline-block">Documento Vigente</p>
-                                <p v-else class="text-xs text-red-600 font-bold mb-2 bg-red-50 px-2 py-1 rounded inline-block">Documento Vencido</p>
-                                
-                                <div v-if="!isIdentityLocked" class="mt-2">
-                                    <SecondaryButton @click="editingIdCard = true" size="sm">Cambiar Imagen</SecondaryButton>
-                                </div>
-                            </div>
-                            
-                            <div v-else class="w-full text-center">
-                                <div v-if="isIdentityLocked" class="text-gray-400 italic text-sm">
-                                    <span class="text-2xl block mb-2">🔒</span>
-                                    Imagen protegida por verificación
-                                </div>
-                                <div v-else>
-                                    <svg class="mx-auto h-10 w-10 text-gray-400 mb-2" stroke="currentColor" fill="none" viewBox="0 0 48 48"><path d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" /></svg>
-                                    <p class="text-xs text-gray-500 mb-3">Sube una foto clara</p>
-                                    <input type="file" @change="handleIdCardPhotoChange" class="block w-full text-xs text-gray-500 file:mx-auto file:block file:px-4 file:py-2 file:rounded-full file:border-0 file:bg-indigo-100 file:text-indigo-700 hover:file:bg-indigo-200 cursor-pointer" accept="image/*" />
-                                    <SecondaryButton v-if="editingIdCard" @click="editingIdCard = false" class="mt-4">Cancelar</SecondaryButton>
-                                </div>
-                            </div>
-                        </div>
-                        <InputError :message="form.errors.id_card_photo" class="mt-1" />
-                    </div>
+                    <!-- Layout: Si está la modal de verificación, la sección de documento se simplifica en el grid -->
                 </div>
             </div>
 
+            <!-- SECCIÓN VERIFICACIÓN AVANZADA -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 
-                <div class="bg-white p-6 rounded-xl border shadow-sm">
-                    <h3 class="font-bold text-gray-900 mb-4 flex items-center">
-                        📸 Verificación Facial
-                        <span v-if="isIdentityLocked" class="ml-2 text-xs text-gray-400">🔒</span>
+                <div class="bg-indigo-50 p-6 rounded-xl border border-indigo-100 shadow-sm relative overflow-hidden">
+                    <div class="absolute top-0 right-0 p-4 opacity-10">
+                        <svg class="w-24 h-24" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" /></svg>
+                    </div>
+                    
+                    <h3 class="font-bold text-indigo-900 mb-4 flex items-center relative z-10">
+                        📸 Verificación de Identidad
+                        <span v-if="isIdentityLocked" class="ml-2 text-xs text-gray-400">🔒 Verificado/En Revisión</span>
                     </h3>
-                    <div class="text-center h-full flex flex-col justify-center">
-                        <div v-if="user.biometric_photo_path && !editingBiometric">
-                            <div class="inline-flex items-center px-4 py-2 bg-green-50 text-green-700 rounded-full mb-4 border border-green-200 text-sm font-bold">
-                                Biometría Capturada
+                    
+                    <div class="text-center h-full flex flex-col justify-center relative z-10">
+                        <!-- Caso 1: Ya existe foto en DB -->
+                        <div v-if="user.biometric_photo_path && !form.biometric_photo">
+                            <div class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-full mb-4 border border-green-200 text-sm font-bold shadow-sm">
+                                ✅ Biometría Completada
                             </div>
+                            <p class="text-xs text-green-700 mb-2">Tu identidad está protegida.</p>
                             <div v-if="!isIdentityLocked">
-                                <SecondaryButton @click="editingBiometric = true">Repetir Selfie</SecondaryButton>
+                                <SecondaryButton @click="showVerificationModal = true" size="sm">Actualizar Verificación</SecondaryButton>
                             </div>
                         </div>
+
+                        <!-- Caso 2: Acaba de completar el proceso (form tiene data) -->
+                        <div v-else-if="form.biometric_photo">
+                            <div class="bg-white p-2 rounded-lg shadow mb-3 inline-block">
+                                <img :src="form.biometric_photo" class="h-24 w-24 object-cover rounded-lg mx-auto">
+                            </div>
+                            <p class="text-sm font-bold text-indigo-700 mb-2">¡Captura Lista para Enviar!</p>
+                            <SecondaryButton @click="showVerificationModal = true" size="sm">Repetir Proceso</SecondaryButton>
+                        </div>
+
+                        <!-- Caso 3: Pendiente -->
                         <div v-else>
-                            <div v-if="isIdentityLocked" class="text-gray-400 italic text-sm">Verificación en proceso.</div>
-                            <CameraCapture v-else @photo-captured="handleBiometricCapture" />
+                            <p class="text-sm text-gray-600 mb-6">Realiza una breve verificación facial para activar tu cuenta.</p>
+                            
+                            <div v-if="isIdentityLocked" class="text-gray-400 italic text-sm border-2 border-dashed p-4 rounded-lg">
+                                Verificación en proceso de revisión.
+                            </div>
+                            
+                            <button v-else @click.prevent="showVerificationModal = true" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 group">
+                                <span class="text-xl group-hover:scale-110 transition-transform">📷</span>
+                                Iniciar Verificación
+                            </button>
                         </div>
                     </div>
                 </div>
@@ -346,10 +348,18 @@ const submit = () => {
                     <p v-if="form.recentlySuccessful" class="text-sm text-green-600 font-bold">✅ Información guardada correctamente.</p>
                 </Transition>
                 
-                <PrimaryButton :disabled="form.processing" class="h-12 px-8 text-lg w-full sm:w-auto justify-center shadow-lg hover:shadow-xl transition-all">
+                <PrimaryButton :disabled="form.processing" class="h-12 px-8 text-lg w-full sm:w-auto justify-center shadow-lg hover:shadow-xl transition-all bg-indigo-600 hover:bg-indigo-700">
                     Guardar Cambios
                 </PrimaryButton>
             </div>
         </form>
+
+        <!-- MODAL DE VERIFICACIÓN -->
+        <IdentityVerificationModal 
+            :show="showVerificationModal" 
+            @close="showVerificationModal = false" 
+            @completed="handleVerificationComplete"
+        />
+
     </section>
 </template>
