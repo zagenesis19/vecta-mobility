@@ -22,8 +22,8 @@ class TestUsersSeeder extends Seeder
             'role' => 'admin',
             'is_approved' => true,
             'identity_status' => 'verified',
-            'id_card_number' => '12345678',
-            'phone_number' => '04121234567',
+            'id_card_number' => 'V-28456123',
+            'phone_number' => '04241234567',
         ]);
 
         // 2. CONDUCTOR (Carro)
@@ -34,8 +34,8 @@ class TestUsersSeeder extends Seeder
             'role' => 'driver',
             'is_approved' => true,
             'identity_status' => 'verified',
-            'id_card_number' => '23456789',
-            'phone_number' => '04142345678',
+            'id_card_number' => 'V-26789456',
+            'phone_number' => '04142567890',
             'current_lat' => 10.2443,
             'current_lng' => -66.8622,
         ]);
@@ -57,8 +57,8 @@ class TestUsersSeeder extends Seeder
             'role' => 'driver',
             'is_approved' => true,
             'identity_status' => 'verified',
-            'id_card_number' => '34567890',
-            'phone_number' => '04243456789',
+            'id_card_number' => 'V-25123789',
+            'phone_number' => '04126543210',
             'current_lat' => 10.2450,
             'current_lng' => -66.8630,
         ]);
@@ -80,19 +80,19 @@ class TestUsersSeeder extends Seeder
             'role' => 'passenger',
             'is_approved' => true,
             'identity_status' => 'verified',
-            'id_card_number' => '31332083',
+            'id_card_number' => 'V-31332083',
             'phone_number' => '04241928802',
         ]);
 
         // 5. CONDUCTOR PENDIENTE DE APROBACIÓN
         $driverPending = User::create([
             'name' => 'José Pérez',
-            'email' => 'joseperez@gmail.com',
-            'password' => Hash::make('joseperez123'),
+            'email' => 'jose.perez@gmail.com',
+            'password' => Hash::make('JosePending2026!'),
             'role' => 'driver',
             'is_approved' => false,
             'identity_status' => 'pending',
-            'id_card_number' => '56789012',
+            'id_card_number' => 'V-27456890',
             'phone_number' => '04145678901',
         ]);
 
