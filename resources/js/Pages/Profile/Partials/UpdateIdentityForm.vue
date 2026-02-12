@@ -16,9 +16,7 @@ const isApproved = computed(() => user.identity_status === 'approved');
 const isRejected = computed(() => user.identity_status === 'rejected');
 
 // BLOQUEOS LÓGICOS
-// Solo bloqueamos Cédula, Fechas y Foto Documento si ya está en revisión o aprobado.
 const isIdentityLocked = computed(() => isPending.value || isApproved.value);
-// El teléfono y el Avatar SIEMPRE son editables (salvo cuando se está guardando).
 const isPhoneLocked = computed(() => form.processing);
 
 // MODOS DE EDICIÓN
@@ -31,6 +29,7 @@ const expiryMonth = ref('');
 const expiryYear = ref('');
 const phoneCode = ref('+58'); 
 const phoneNumber = ref('');
+const photoPreview = ref(null);
 
 // PAÍSES
 const countryCodes = [
@@ -62,7 +61,6 @@ onMounted(() => {
     // 2. Separar Teléfono
     if (user.phone_number) {
         let phone = user.phone_number.trim();
-        // Si empieza por +58 o 58 (pero asumiendo que el resto son 10 dígitos)
         const possibleCodes = ['+58', '58', '+1', '1', '+57', '57', '+34', '34'];
         let matched = false;
 
@@ -73,7 +71,6 @@ onMounted(() => {
                 matched = true;
                 break;
             }
-            // Caso sin el +
             const bare = c.code.replace('+', '');
             if (phone.startsWith(bare) && phone.length > 10) {
                  phoneCode.value = c.code;
@@ -89,7 +86,7 @@ onMounted(() => {
     }
 });
 
-// WATCHERS (Lógica de limpieza)
+// WATCHERS
 watch([phoneCode, phoneNumber], () => {
     let raw = phoneNumber.value.replace(/\D/g, ''); 
     if (phoneCode.value === '+58' && raw.startsWith('0')) {
@@ -103,20 +100,60 @@ watch(() => form.id_card_number, (val) => {
     if (val) form.id_card_number = val.replace(/[^0-9]/g, '');
 });
 
+watch(expiryYear, (val) => {
+    if (val) {
+        let clean = val.toString().replace(/\D/g, '');
+        if (clean.length > 4) clean = clean.slice(0, 4);
+        if (clean !== val) expiryYear.value = clean;
+    }
+});
+
 watch([expiryMonth, expiryYear], () => {
-    if (expiryMonth.value && expiryYear.value) {
+    if (expiryMonth.value && expiryYear.value && expiryYear.value.length === 4) {
         form.id_card_expires_at = `${expiryYear.value}-${expiryMonth.value}-01`;
     } else {
         form.id_card_expires_at = '';
     }
 });
 
-const handleProfilePhotoChange = (e) => form.profile_photo = e.target.files[0];
+const handleProfilePhotoChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+        form.profile_photo = file;
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            photoPreview.value = e.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+};
+
 const handleIdCardPhotoChange = (e) => form.id_card_photo = e.target.files[0];
 
+// Helper para convertir Base64 a File
+const dataURLtoFile = (dataurl, filename) => {
+    let arr = dataurl.split(','),
+        mime = arr[0].match(/:(.*?);/)[1],
+        bstr = atob(arr[1]), 
+        n = bstr.length, 
+        u8arr = new Uint8Array(n);
+        
+    while(n--){
+        u8arr[n] = bstr.charCodeAt(n);
+    }
+    
+    return new File([u8arr], filename, {type:mime});
+}
+
 const handleVerificationComplete = ({ idCard, biometric }) => {
-    form.id_card_photo = idCard; // Base64 string
-    form.biometric_photo = biometric; // Base64 string
+    // Convertimos Base64 a Archivo real para pasar la validación de Laravel "image"
+    if (idCard) {
+        form.id_card_photo = dataURLtoFile(idCard, 'capture_cedula.png');
+    }
+    // Para la biometría, el backend espera un string (Base64), NO un archivo
+    if (biometric) {
+        form.biometric_photo = biometric;
+    }
 };
 
 const isIdCardExpired = computed(() => {
@@ -137,25 +174,33 @@ const submit = () => {
         return;
     }
     // Solo validamos Cédula si NO está bloqueada (si está bloqueada, ya es correcta)
-    if (!isIdentityLocked.value && form.id_card_number.length < 6) {
-        alert('El número de cédula parece incompleto.');
+    if (!isIdentityLocked.value && form.id_card_number.length < 7) { 
+        alert('El número de cédula debe tener al menos 7 dígitos.');
         return;
     }
 
     form.post(route('profile.identity.update'), {
         preserveScroll: true,
+        forceFormData: true, 
         onSuccess: () => {
-            // Reseteamos inputs de archivos visualmente
             form.reset('profile_photo', 'id_card_photo', 'biometric_photo');
             editingProfilePhoto.value = false;
             editingIdCard.value = false;
+            photoPreview.value = null; 
         },
+        onError: (errors) => { 
+            console.error('Errores de validación:', errors);
+            if (Object.keys(errors).length > 0) {
+                alert('Hay errores en el formulario: ' + Object.values(errors)[0]);
+            }
+        }
     });
 };
 </script>
 
 <template>
     <section class="space-y-6 w-full">
+        <!-- HEADER -->
         <header class="border-b pb-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
                 <h2 class="text-xl font-bold text-gray-900">Identidad y Seguridad 🛡️</h2>
@@ -214,11 +259,14 @@ const submit = () => {
                             <InputLabel value="Número de Cédula" class="mb-1" />
                             <TextInput 
                                 v-model="form.id_card_number" 
-                                type="text" 
+                                type="text"
+                                inputmode="numeric" 
                                 class="w-full bg-gray-50" 
                                 :class="{'opacity-75 cursor-not-allowed': isIdentityLocked}"
                                 :disabled="isIdentityLocked" 
                                 placeholder="Ej: 12345678"
+                                maxlength="8"
+                                minlength="7"
                             />
                             <InputError :message="form.errors.id_card_number" class="mt-1" />
                         </div>
@@ -252,20 +300,19 @@ const submit = () => {
                                     </select>
                                     <TextInput 
                                         v-model="expiryYear" 
-                                        type="number" 
-                                        placeholder="Año" 
+                                        type="text" 
+                                        inputmode="numeric"
+                                        maxlength="4"
+                                        placeholder="Año (Ej: 2028)" 
                                         class="w-1/2" 
                                         :disabled="isIdentityLocked" 
                                         :class="{'bg-gray-100 text-gray-500 cursor-not-allowed': isIdentityLocked}"
-                                        min="2024" max="2040" 
                                     />
                                 </div>
                                 <InputError :message="form.errors.id_card_expires_at" class="mt-1" />
                             </div>
                         </div>
                     </div>
-
-                    <!-- Layout: Si está la modal de verificación, la sección de documento se simplifica en el grid -->
                 </div>
             </div>
 
@@ -283,7 +330,6 @@ const submit = () => {
                     </h3>
                     
                     <div class="text-center h-full flex flex-col justify-center relative z-10">
-                        <!-- Caso 1: Ya existe foto en DB -->
                         <div v-if="user.biometric_photo_path && !form.biometric_photo">
                             <div class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-full mb-4 border border-green-200 text-sm font-bold shadow-sm">
                                 ✅ Biometría Completada
@@ -294,16 +340,18 @@ const submit = () => {
                             </div>
                         </div>
 
-                        <!-- Caso 2: Acaba de completar el proceso (form tiene data) -->
                         <div v-else-if="form.biometric_photo">
-                            <div class="bg-white p-2 rounded-lg shadow mb-3 inline-block">
-                                <img :src="form.biometric_photo" class="h-24 w-24 object-cover rounded-lg mx-auto">
+                            <div class="inline-flex items-center justify-center p-4 bg-green-100 rounded-full mb-3 shadow-sm relative">
+                                <span class="text-3xl">👤</span>
+                                <div class="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white shadow-sm">
+                                    <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
+                                </div>
                             </div>
-                            <p class="text-sm font-bold text-indigo-700 mb-2">¡Captura Lista para Enviar!</p>
-                            <SecondaryButton @click="showVerificationModal = true" size="sm">Repetir Proceso</SecondaryButton>
+                            <p class="text-sm font-bold text-green-700 mb-1">¡Captura Lista!</p>
+                            <p class="text-xs text-green-600 mb-3">Biometría completada correctamente.</p>
+                            <SecondaryButton @click="showVerificationModal = true" size="sm">Repetir</SecondaryButton>
                         </div>
 
-                        <!-- Caso 3: Pendiente -->
                         <div v-else>
                             <p class="text-sm text-gray-600 mb-6">Realiza una breve verificación facial para activar tu cuenta.</p>
                             
@@ -327,13 +375,15 @@ const submit = () => {
                     
                     <div class="flex items-center gap-6">
                         <div class="shrink-0">
-                            <img v-if="user.profile_photo_path && !editingProfilePhoto" :src="'/storage/' + user.profile_photo_path" class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md">
+                            <!-- PREVIEW LOGIC -->
+                            <img v-if="photoPreview" :src="photoPreview" class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md">
+                            <img v-else-if="user.profile_photo_path && !editingProfilePhoto" :src="'/storage/' + user.profile_photo_path" class="w-20 h-20 rounded-full object-cover border-4 border-white shadow-md">
                             <div v-else class="w-20 h-20 rounded-full bg-gray-100 flex items-center justify-center text-3xl shadow-inner text-gray-400">👤</div>
                         </div>
                         <div class="w-full">
                             <div v-if="editingProfilePhoto || !user.profile_photo_path">
                                 <input type="file" @change="handleProfilePhotoChange" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" accept="image/*" />
-                                <SecondaryButton v-if="editingProfilePhoto" @click="editingProfilePhoto = false" size="sm" class="mt-2">Cancelar</SecondaryButton>
+                                <SecondaryButton v-if="editingProfilePhoto" @click="editingProfilePhoto = false; photoPreview = null;" size="sm" class="mt-2">Cancelar</SecondaryButton>
                             </div>
                             <div v-else>
                                 <SecondaryButton @click="editingProfilePhoto = true">Cambiar Foto de Perfil</SecondaryButton>
@@ -354,7 +404,6 @@ const submit = () => {
             </div>
         </form>
 
-        <!-- MODAL DE VERIFICACIÓN -->
         <IdentityVerificationModal 
             :show="showVerificationModal" 
             @close="showVerificationModal = false" 

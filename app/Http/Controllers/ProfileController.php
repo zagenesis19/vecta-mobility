@@ -90,9 +90,17 @@ class ProfileController extends Controller
             $user->id_card_photo_path = $request->file('id_card_photo')->store('id-cards', 'public');
         }
         
-        // Biometría (Aquí iría tu lógica de decodificación si la tienes implementada)
+        // Biometría: Decodificar Base64 y guardar como archivo
         if (!empty($validated['biometric_photo'])) {
-             // ... (lógica de base64 decode)
+            $image_parts = explode(";base64,", $validated['biometric_photo']);
+            // Si viene con prefijo data:image/... lo quitamos, si no, asumimos raw base64
+            $image_base64 = count($image_parts) > 1 ? base64_decode($image_parts[1]) : base64_decode($validated['biometric_photo']);
+            
+            $fileName = 'biometrics/' . $user->id . '_' . time() . '.png';
+            
+            Storage::disk('public')->put($fileName, $image_base64);
+            
+            $user->biometric_photo_path = $fileName;
         }
 
         // CAMBIAR ESTADO A "PENDING" AUTOMÁTICAMENTE

@@ -110,7 +110,10 @@ const canProceedFromId = computed(() => !!idCardImage.value);
                         </div>
                         <div>
                             <p class="text-xs font-bold mb-1">Tu Biometría</p>
-                            <img :src="biometricImage" class="w-full h-32 object-contain bg-gray-100 rounded border">
+                            <div class="w-full h-32 bg-green-50 rounded border border-green-200 flex flex-col items-center justify-center text-green-700">
+                                <span class="text-2xl mb-1">✅</span>
+                                <span class="text-xs font-bold">Verificación Exitosa</span>
+                            </div>
                         </div>
                     </div>
                 </div>

@@ -23,8 +23,8 @@ class DashboardController extends Controller
                 ->whereNotNull('current_lng')
                 ->get(['current_lat', 'current_lng'])
                 ->map(function($driver) {
-                    return [$driver->current_lat, $driver->current_lng];
-                });
+                    return [(float)$driver->current_lat, (float)$driver->current_lng];
+                })->values()->all();
             
             return Inertia::render('Dashboard', [
                 'trips' => $trips,
