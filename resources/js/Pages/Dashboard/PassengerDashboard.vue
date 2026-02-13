@@ -254,14 +254,39 @@ const startRealTimeTracking = () => {
 
 onMounted(() => {
     setTimeout(() => { mapReady.value = true; }, 100);
-    refreshCurrentLocation();
+
+    // Check for query params from Landing Page
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.has('origin_lat') && urlParams.has('destination_lat')) {
+        form.origin = urlParams.get('origin_address') || form.origin;
+        form.origin_lat = parseFloat(urlParams.get('origin_lat'));
+        form.origin_lng = parseFloat(urlParams.get('origin_lng'));
+        form.destination = urlParams.get('destination_address') || form.destination;
+        form.destination_lat = parseFloat(urlParams.get('destination_lat'));
+        form.destination_lng = parseFloat(urlParams.get('destination_lng'));
+
+        if (form.origin_lat && form.origin_lng) {
+            center.value = [form.origin_lat, form.origin_lng];
+            userLocation.value = [form.origin_lat, form.origin_lng];
+        }
+        if (form.destination_lat && form.destination_lng) {
+            destinationLocation.value = [form.destination_lat, form.destination_lng];
+        }
+        
+        getRouteAndDetails();
+        
+        // Clean URL
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } else {
+        refreshCurrentLocation();
+    }
 
     if (activeTrip.value) {
         startRealTimeTracking();
         if(activeTrip.value.origin_lat && activeTrip.value.destination_lat) {
              form.origin_lat = activeTrip.value.origin_lat;
              form.origin_lng = activeTrip.value.origin_lng;
-             form.destination_lat = activeTrip.value.destination_lat;
+             form.destination_lat = activeTrip.value.destination_lat; 
              form.destination_lng = activeTrip.value.destination_lng;
              getRouteAndDetails();
         }

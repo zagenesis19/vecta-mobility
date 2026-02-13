@@ -1,0 +1,36 @@
+<svg width="300" height="600" viewBox="0 0 300 600" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#001F5B;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#001540;stop-opacity:1" />
+        </linearGradient>
+    </defs>
+    
+    <!-- Background -->
+    <rect width="300" height="600" fill="url(#bgGrad)"/>
+    
+    <!-- Decorative Curves (Like Ridery/Yummy) -->
+    <path d="M0 450 Q150 400 300 450 L300 600 L0 600 Z" fill="#80C5DE" opacity="0.1"/>
+    <path d="M0 500 Q150 450 300 500 L300 600 L0 600 Z" fill="#80C5DE" opacity="0.2"/>
+    
+    <!-- Vecta Logo Construction -->
+    <g transform="translate(150, 250) scale(1.5)">
+        <!-- V shape -->
+        <path d="M-30 -20 L0 30 L30 -20" stroke="white" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+        <!-- Car Icon stylized -->
+        <path d="M-15 -10 L15 -10 L25 -10" stroke="#80C5DE" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="20" cy="-10" r="3" fill="#80C5DE"/>
+    </g>
+    
+    <!-- Text -->
+    <text x="150" y="320" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="32" fill="white">VECTA</text>
+    <text x="150" y="350" text-anchor="middle" font-family="Arial, sans-serif" font-size="14" spacing="2" fill="#80C5DE" letter-spacing="4">MOBILITY</text>
+    
+    <!-- Slogan -->
+    <text x="150" y="100" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="28" fill="white">Tu viaje</text>
+    <text x="150" y="135" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="28" fill="#80C5DE">SEGURO</text>
+    
+    <!-- Button Simulation -->
+    <rect x="50" y="520" width="200" height="50" rx="25" fill="#80C5DE"/>
+    <text x="150" y="552" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="16" fill="#001F5B">Descargar Gratis</text>
+</svg>

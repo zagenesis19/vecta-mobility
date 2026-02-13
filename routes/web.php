@@ -47,6 +47,15 @@ Route::get('/', function () {
     ]);
 });
 
+// Store Simulation Routes
+Route::get('/app-store', function () {
+    return Inertia::render('Stores/AppStore'); 
+})->name('app-store');
+
+Route::get('/google-play', function () {
+    return Inertia::render('Stores/PlayStore'); 
+})->name('google-play');
+
 // 2. DASHBOARD INTELIGENTE
 Route::get('/dashboard', [App\Http\Controllers\DashboardController::class, 'index'])
     ->middleware(['auth'])

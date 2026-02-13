@@ -1,6 +1,6 @@
 <script setup>
-import { Head, Link } from '@inertiajs/vue3';
-import { ref, onMounted, onUnmounted, computed } from 'vue';
+import { Head, Link, router } from '@inertiajs/vue3';
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 
 const props = defineProps({
     canLogin: Boolean,
@@ -10,6 +10,96 @@ const props = defineProps({
 
 const origin = ref('');
 const destination = ref('');
+const originLat = ref(null);
+const originLng = ref(null);
+const destinationLat = ref(null);
+const destinationLng = ref(null);
+
+const originSearchResults = ref([]);
+const searchResults = ref([]); // For destination
+let originDebounce = null;
+let destDebounce = null;
+
+// --- Geolocation & Search Logic ---
+
+const refreshCurrentLocation = () => {
+    origin.value = '📍 Localizando...';
+    if (navigator.geolocation) {
+        navigator.geolocation.getCurrentPosition(
+            async (position) => {
+                const lat = position.coords.latitude;
+                const lng = position.coords.longitude;
+                originLat.value = lat;
+                originLng.value = lng;
+                try {
+                    const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`);
+                    const data = await res.json();
+                    if (data?.display_name) origin.value = "📍 " + data.display_name.split(',')[0];
+                } catch (e) { origin.value = "📍 Ubicación detectada"; }
+            },
+            () => { origin.value = '❌ Error de ubicación'; }
+        );
+    } else {
+        origin.value = '❌ GPS no disponible';
+    }
+};
+
+watch(origin, (newVal) => {
+    clearTimeout(originDebounce);
+    originDebounce = setTimeout(async () => {
+        if (!newVal || newVal.length < 3) { originSearchResults.value = []; return; }
+        // Don't search if it looks like a selected address or locating msg
+        if (newVal.startsWith('📍')) return; 
+        
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(newVal)}&countrycodes=ve&limit=5`);
+            originSearchResults.value = await res.json();
+        } catch (e) {}
+    }, 300);
+});
+
+const selectOrigin = (place) => {
+    origin.value = "📍 " + place.display_name.split(',')[0]; 
+    originLat.value = parseFloat(place.lat);
+    originLng.value = parseFloat(place.lon);
+    originSearchResults.value = []; 
+};
+
+watch(destination, (newVal) => {
+    clearTimeout(destDebounce);
+    destDebounce = setTimeout(async () => {
+        if (!newVal || newVal.length < 3) { searchResults.value = []; return; }
+        if (newVal.startsWith('🏁')) return; // Avoid search loop on selection
+        
+        try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(newVal)}&countrycodes=ve&limit=5`);
+            searchResults.value = await res.json();
+        } catch (e) {}
+    }, 300);
+});
+
+const selectDestination = (place) => {
+    destination.value = place.display_name.split(',')[0]; 
+    destinationLat.value = parseFloat(place.lat);
+    destinationLng.value = parseFloat(place.lon);
+    searchResults.value = []; 
+};
+
+const handleRequestRide = () => {
+    const params = {
+        origin_address: origin.value?.replace('📍 ', '') || '',
+        origin_lat: originLat.value || '',
+        origin_lng: originLng.value || '',
+        destination_address: destination.value?.replace('🏁 ', '') || '', 
+        destination_lat: destinationLat.value || '',
+        destination_lng: destinationLng.value || '',
+    };
+    
+    // Filter out empty params
+    const query = Object.fromEntries(Object.entries(params).filter(([_, v]) => v != null && v !== ''));
+    
+    router.get(route('dashboard'), query);
+};
 
 // Spotlight effect
 const heroSection = ref(null);
@@ -395,12 +485,12 @@ onUnmounted(() => {
                         
                         <!-- Mobile App Badges -->
                         <div class="flex gap-4 pt-4">
-                            <a href="#" class="hover:scale-105 transition">
+                            <Link :href="route('app-store')" class="hover:scale-105 transition">
                                 <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="App Store" class="h-12">
-                            </a>
-                            <a href="#" class="hover:scale-105 transition">
+                            </Link>
+                            <Link :href="route('google-play')" class="hover:scale-105 transition">
                                 <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Google Play" class="h-12">
-                            </a>
+                            </Link>
                         </div>
                     </div>
 
@@ -408,32 +498,66 @@ onUnmounted(() => {
                     <div class="rounded-2xl shadow-2xl p-8" style="background-color: #FFFFFF;">
                         <h3 class="text-xl font-bold mb-6" style="color: #001F5B;">Solicita tu viaje ahora</h3>
                         <form @submit.prevent class="space-y-4">
-                            <div>
+                            <div class="relative">
                                 <label class="block text-sm font-medium mb-2" style="color: #001F5B;">Origen</label>
-                                <input 
-                                    v-model="origin"
-                                    type="text" 
-                                    placeholder="Entrar un origen" 
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
-                                    style="--tw-ring-color: #80C5DE;"
-                                >
+                                <div class="flex gap-2">
+                                    <input 
+                                        v-model="origin"
+                                        type="text" 
+                                        placeholder="📍 ¿Dónde estás?" 
+                                        class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent text-gray-900 placeholder-gray-500"
+                                        style="--tw-ring-color: #80C5DE;"
+                                    >
+                                    <button 
+                                        type="button"
+                                        @click="refreshCurrentLocation" 
+                                        class="bg-blue-100 hover:bg-blue-200 text-blue-800 px-3 rounded-lg transition-colors" 
+                                        title="Usar mi ubicación actual"
+                                    >
+                                        📍
+                                    </button>
+                                </div>
+                                <!-- Dropdown Resultados Origen -->
+                                <ul v-if="originSearchResults.length > 0" class="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-60 overflow-y-auto">
+                                    <li 
+                                        v-for="place in originSearchResults" 
+                                        :key="place.place_id" 
+                                        @click="selectOrigin(place)" 
+                                        class="px-4 py-3 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-0 transition-colors text-gray-700"
+                                    >
+                                        📍 {{ place.display_name }}
+                                    </li>
+                                </ul>
                             </div>
-                            <div>
+
+                            <div class="relative">
                                 <label class="block text-sm font-medium mb-2" style="color: #001F5B;">Destino</label>
                                 <input 
                                     v-model="destination"
                                     type="text" 
-                                    placeholder="Entrar un destino" 
-                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent"
+                                    placeholder="🏁 ¿A dónde vas?" 
+                                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:border-transparent text-gray-900 placeholder-gray-500"
                                     style="--tw-ring-color: #80C5DE;"
                                 >
+                                <!-- Dropdown Resultados Destino -->
+                                <ul v-if="searchResults.length > 0" class="absolute z-50 w-full bg-white border border-gray-200 rounded-lg shadow-xl mt-1 max-h-60 overflow-y-auto">
+                                    <li 
+                                        v-for="place in searchResults" 
+                                        :key="place.place_id" 
+                                        @click="selectDestination(place)" 
+                                        class="px-4 py-3 hover:bg-blue-50 cursor-pointer text-sm border-b last:border-0 transition-colors text-gray-700"
+                                    >
+                                        🏁 {{ place.display_name }}
+                                    </li>
+                                </ul>
                             </div>
-                            <Link 
-                                :href="route('register')"
-                                class="block w-full text-center py-3 rounded-lg font-bold transition shadow-lg vecta-btn-primary"
+                            <button 
+                                type="button"
+                                @click="handleRequestRide"
+                                class="block w-full text-center py-3 rounded-lg font-bold transition shadow-lg vecta-btn-primary text-white hover:scale-[1.02]"
                             >
                                 Solicitar VECTA ahora
-                            </Link>
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -613,12 +737,12 @@ onUnmounted(() => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <h2 class="text-3xl font-black mb-6">Empieza a viajar hoy.</h2>
                 <div class="flex justify-center gap-4">
-                    <a href="#" class="hover:scale-105 transition">
+                    <Link :href="route('app-store')" class="hover:scale-105 transition">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="App Store" class="h-14">
-                    </a>
-                    <a href="#" class="hover:scale-105 transition">
+                    </Link>
+                    <Link :href="route('google-play')" class="hover:scale-105 transition">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Google Play" class="h-14">
-                    </a>
+                    </Link>
                 </div>
             </div>
         </section>
