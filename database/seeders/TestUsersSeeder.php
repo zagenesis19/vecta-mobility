@@ -26,7 +26,7 @@ class TestUsersSeeder extends Seeder
             'phone_number' => '04241234567',
         ]);
 
-        // 2. CONDUCTOR (Carro)
+        // 2. CONDUCTOR (Carro) - Charallave
         $driver1 = User::create([
             'name' => 'Juan Avila',
             'email' => 'juanavila@gmail.com',
@@ -36,6 +36,7 @@ class TestUsersSeeder extends Seeder
             'identity_status' => 'verified',
             'id_card_number' => 'V-26789456',
             'phone_number' => '04142567890',
+            'municipality' => 'Charallave',
             'current_lat' => 10.2443,
             'current_lng' => -66.8622,
         ]);
@@ -49,7 +50,7 @@ class TestUsersSeeder extends Seeder
             'color' => 'Blanco',
         ]);
 
-        // 3. CONDUCTOR (Moto)
+        // 3. CONDUCTOR (Moto) - Cúa
         $driver2 = User::create([
             'name' => 'Antonio Pérez',
             'email' => 'antonioperez@gmail.com',
@@ -59,6 +60,7 @@ class TestUsersSeeder extends Seeder
             'identity_status' => 'verified',
             'id_card_number' => 'V-25123789',
             'phone_number' => '04126543210',
+            'municipality' => 'Cúa',
             'current_lat' => 10.2450,
             'current_lng' => -66.8630,
         ]);
@@ -84,16 +86,17 @@ class TestUsersSeeder extends Seeder
             'phone_number' => '04241928802',
         ]);
 
-        // 5. CONDUCTOR PENDIENTE DE APROBACIÓN
+        // 5. CONDUCTOR PENDIENTE DE APROBACIÓN - San Francisco de Yare
         $driverPending = User::create([
             'name' => 'José Pérez',
             'email' => 'jose.perez@gmail.com',
             'password' => Hash::make('JosePending2026!'),
             'role' => 'driver',
-            'is_approved' => false,
-            'identity_status' => 'pending',
+            'is_approved' => true, // Cambiado a true para que aparezca en el mapa
+            'identity_status' => 'verified', // Cambiado a verified
             'id_card_number' => 'V-27456890',
             'phone_number' => '04145678901',
+            'municipality' => 'San Francisco de Yare',
         ]);
 
         Vehicle::create([

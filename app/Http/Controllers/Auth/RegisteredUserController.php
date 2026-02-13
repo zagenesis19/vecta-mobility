@@ -110,7 +110,7 @@ class RegisteredUserController extends Controller
             'password' => Hash::make($request->password),
             'role' => $request->role,
             'is_approved' => false, 
-            'identity_status' => 'unverified', // Agregamos esto para Fase 5
+            'identity_status' => $request->role === 'driver' ? 'pending' : 'unverified', // Cambiado a pending para conductores
             
             // Documentos
             'license_file' => $licensePath,
