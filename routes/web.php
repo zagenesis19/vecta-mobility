@@ -55,6 +55,14 @@ Route::get('/dashboard', [App\Http\Controllers\DashboardController::class, 'inde
 // 3. GRUPO DE RUTAS AUTENTICADAS
 Route::middleware('auth')->group(function () {
     
+    // Analytics Routes
+    Route::post('/analytics/events', [App\Http\Controllers\Admin\AnalyticsController::class, 'store'])->name('analytics.store');
+    Route::get('/admin/analytics/stats', [App\Http\Controllers\Admin\AnalyticsController::class, 'stats'])->name('admin.analytics.stats');
+    Route::get('/admin/analytics', function () {
+        return \Inertia\Inertia::render('Admin/AnalyticsDashboard');
+    })->name('admin.analytics');
+
+    // Profile Routes
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');

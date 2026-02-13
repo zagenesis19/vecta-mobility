@@ -21,10 +21,12 @@
     "dependencies": {
         "@vue-leaflet/vue-leaflet": "^0.10.1",
         "apexcharts": "^5.3.6",
+        "chart.js": "^4.5.1",
         "face-api.js": "^0.22.2",
         "html2canvas": "^1.4.1",
         "leaflet": "^1.9.4",
         "leaflet.heat": "^0.2.0",
+        "vue-chartjs": "^5.3.3",
         "vue3-apexcharts": "^1.10.0"
     }
 }

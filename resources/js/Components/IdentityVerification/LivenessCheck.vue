@@ -129,8 +129,8 @@ const startDetection = (canvas, displaySize) => {
             
             // 2. Blink Challenge
             if (currentStep.value === 'blink') {
-                // If eyes closed (Threshold 0.35)
-                if (avgEAR < 0.35) {
+                // If eyes closed (Threshold 0.30 - lowered to reduce false positives with glasses)
+                if (avgEAR < 0.30) {
                     blinkCounter++;
                     feedbackMessage.value = "😌 ¡Mantén cerrado... (" + blinkCounter + "/3)";
                     if (blinkCounter >= 3) { 
@@ -144,7 +144,7 @@ const startDetection = (canvas, displaySize) => {
                 }
             }
             
-            // 3. Turn Challenge (Simple Yaw Approximation)
+            // 3. Turn Challenge (Relaxed Thresholds)
             // 3. Turn Left Challenge
             if (currentStep.value === 'turn_left') {
                 const nose = landmarks.getNose();
@@ -162,16 +162,10 @@ const startDetection = (canvas, displaySize) => {
                 const ctxText = canvas.getContext('2d');
                 ctxText.fillText(`Ratio: ${ratio.toFixed(2)}`, 10, 60);
 
-                // LOOKING LEFT (User turns head Left -> Nose appears closer to Right Jaw on mirrored screen? No.)
-                // Let's rely on the ratio.
-                // Left Turn usually produces ratio < 0.4 or > 0.6 depending on mirror.
-                // We'll trust the ratio trend. 
-                // If the user sees "Turn Left" and does it, the ratio will drift to one extreme.
-                
-                // We'll check for < 0.35 (One side)
-                if (ratio < 0.35) {
-                    blinkCounter++; // Reuse counter
-                    if (blinkCounter > 3) {
+                // Relaxed Left Threshold: < 0.40 (Easier to reach)
+                if (ratio < 0.40) {
+                    blinkCounter++; 
+                    if (blinkCounter > 5) { // Increased frames to ensure stability
                          currentStep.value = 'turn_right';
                          feedbackMessage.value = "➡️ Ahora gira a la DERECHA";
                          blinkCounter = 0;
@@ -196,10 +190,10 @@ const startDetection = (canvas, displaySize) => {
                 const ctxText = canvas.getContext('2d');
                 ctxText.fillText(`Ratio: ${ratio.toFixed(2)}`, 10, 60);
 
-                // Check for > 0.65 (The other side)
-                if (ratio > 0.65) {
+                // Relaxed Right Threshold: > 0.60 (Easier to reach)
+                if (ratio > 0.60) {
                     blinkCounter++;
-                    if (blinkCounter > 3) {
+                    if (blinkCounter > 5) {
                          completeVerification();
                     }
                 }
@@ -228,6 +222,11 @@ const completeVerification = () => {
     }, 1000);
 };
 
+const onPreCheckComplete = () => {
+    currentStep.value = 'loading';
+    loadModels();
+};
+
 const cancel = () => {
     stopCamera();
     emit('cancel');
@@ -241,7 +240,8 @@ const stopCamera = () => {
 };
 
 onMounted(() => {
-    loadModels();
+    currentStep.value = 'pre_check';
+    // loadModels(); // Now called after pre-check
 });
 
 onUnmounted(() => {
@@ -252,8 +252,36 @@ onUnmounted(() => {
 <template>
     <div class="flex flex-col items-center bg-gray-900 text-white p-4 rounded-xl relative overflow-hidden min-h-[500px]">
         
+        <!-- Pre-Check Screen -->
+        <div v-if="currentStep === 'pre_check'" class="absolute inset-0 z-50 bg-gray-900 flex flex-col items-center justify-center p-6 text-center">
+            <h3 class="text-2xl font-bold mb-6 text-yellow-400">⚠️ Antes de Iniciar</h3>
+            
+            <div class="space-y-6 mb-8">
+                <div class="flex items-center gap-4 text-lg">
+                    <span class="text-3xl">👓</span>
+                    <span>Retira <strong>lentes</strong> o gafas oscuras</span>
+                </div>
+                <div class="flex items-center gap-4 text-lg">
+                    <span class="text-3xl">🧢</span>
+                    <span>No uses <strong>gorras</strong> ni sombreros</span>
+                </div>
+                <div class="flex items-center gap-4 text-lg">
+                    <span class="text-3xl">💡</span>
+                    <span>Busca buena <strong>iluminación</strong></span>
+                </div>
+            </div>
+
+            <button @click="onPreCheckComplete" class="w-full py-4 bg-indigo-600 hover:bg-indigo-700 rounded-lg text-lg font-bold shadow-lg transition-transform transform hover:scale-105">
+                Estoy listo y sin accesorios
+            </button>
+            
+            <button @click="cancel" class="mt-4 text-gray-500 hover:text-gray-300">
+                Cancelar
+            </button>
+        </div>
+
         <!-- Loading State -->
-        <div v-if="!modelsLoaded" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-50">
+        <div v-if="currentStep === 'loading' && !modelsLoaded" class="absolute inset-0 flex flex-col items-center justify-center bg-gray-900 z-40">
             <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white mb-4"></div>
             <p>{{ feedbackMessage }}</p>
         </div>

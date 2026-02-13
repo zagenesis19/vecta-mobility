@@ -16,6 +16,12 @@ createInertiaApp({
     title: (title) => `${title} - ${appName}`,
     resolve: (name) => resolvePageComponent(`./Pages/${name}.vue`, import.meta.glob('./Pages/**/*.vue')),
     setup({ el, App, props, plugin }) {
+        // Initialize Analytics
+        import('./Composables/useAnalytics').then(({ useAnalytics }) => {
+            const { initAutoTracking } = useAnalytics();
+            initAutoTracking();
+        });
+
         return createApp({ render: () => h(App, props) })
             .use(plugin)
             .use(ZiggyVue)

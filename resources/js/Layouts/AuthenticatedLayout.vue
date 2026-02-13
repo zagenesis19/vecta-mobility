@@ -39,12 +39,19 @@ const showingNavigationDropdown = ref(false);
                                 >
                                     📚 Historial
                                 </NavLink>
-                                <NavLink 
+                                    <NavLink 
                                         v-if="$page.props.auth.user.role === 'admin'"
                                         :href="route('admin.verifications')" 
                                         :active="route().current('admin.verifications')"
                                     >
                                         Verificaciones 🛡️
+                                    </NavLink>
+                                    <NavLink 
+                                        v-if="$page.props.auth.user.role === 'admin'"
+                                        :href="route('admin.analytics')" 
+                                        :active="route().current('admin.analytics')"
+                                    >
+                                        Analíticas 📊
                                     </NavLink>
                             </div>
                         </div>
@@ -161,6 +168,13 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('trip.history')"
                         >
                             📚 Historial
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink 
+                            v-if="$page.props.auth.user.role === 'admin'"
+                            :href="route('admin.analytics')" 
+                            :active="route().current('admin.analytics')"
+                        >
+                            Analíticas 📊
                         </ResponsiveNavLink>
                     </div>
 

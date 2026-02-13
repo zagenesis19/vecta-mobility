@@ -146,11 +146,12 @@ const dataURLtoFile = (dataurl, filename) => {
 }
 
 const handleVerificationComplete = ({ idCard, biometric }) => {
-    // Convertimos Base64 a Archivo real para pasar la validación de Laravel "image"
+    // Intentamos usar la lógica más robusta: convertir a archivo si es posible
     if (idCard) {
+        // Si el backend espera un archivo real (recomendado), usamos esto
         form.id_card_photo = dataURLtoFile(idCard, 'capture_cedula.png');
     }
-    // Para la biometría, el backend espera un string (Base64), NO un archivo
+    // Si la biometría es simplemente un string base64 para análisis facial
     if (biometric) {
         form.biometric_photo = biometric;
     }
@@ -186,7 +187,7 @@ const submit = () => {
             form.reset('profile_photo', 'id_card_photo', 'biometric_photo');
             editingProfilePhoto.value = false;
             editingIdCard.value = false;
-            photoPreview.value = null; 
+            photoPreview.value = null;
         },
         onError: (errors) => { 
             console.error('Errores de validación:', errors);
@@ -313,6 +314,7 @@ const submit = () => {
                             </div>
                         </div>
                     </div>
+
                 </div>
             </div>
 
@@ -330,6 +332,7 @@ const submit = () => {
                     </h3>
                     
                     <div class="text-center h-full flex flex-col justify-center relative z-10">
+                        <!-- Caso 1: Ya existe foto en DB -->
                         <div v-if="user.biometric_photo_path && !form.biometric_photo">
                             <div class="inline-flex items-center px-4 py-2 bg-green-100 text-green-700 rounded-full mb-4 border border-green-200 text-sm font-bold shadow-sm">
                                 ✅ Biometría Completada
@@ -340,18 +343,16 @@ const submit = () => {
                             </div>
                         </div>
 
+                        <!-- Caso 2: Acaba de completar el proceso (form tiene data) -->
                         <div v-else-if="form.biometric_photo">
-                            <div class="inline-flex items-center justify-center p-4 bg-green-100 rounded-full mb-3 shadow-sm relative">
-                                <span class="text-3xl">👤</span>
-                                <div class="absolute -bottom-1 -right-1 bg-green-500 rounded-full p-1 border-2 border-white shadow-sm">
-                                    <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"></path></svg>
-                                </div>
+                            <div class="bg-white p-2 rounded-lg shadow mb-3 inline-block">
+                                <img :src="form.biometric_photo" class="h-24 w-24 object-cover rounded-lg mx-auto">
                             </div>
-                            <p class="text-sm font-bold text-green-700 mb-1">¡Captura Lista!</p>
-                            <p class="text-xs text-green-600 mb-3">Biometría completada correctamente.</p>
-                            <SecondaryButton @click="showVerificationModal = true" size="sm">Repetir</SecondaryButton>
+                            <p class="text-sm font-bold text-indigo-700 mb-2">¡Captura Lista para Enviar!</p>
+                            <SecondaryButton @click="showVerificationModal = true" size="sm">Repetir Proceso</SecondaryButton>
                         </div>
 
+                        <!-- Caso 3: Pendiente -->
                         <div v-else>
                             <p class="text-sm text-gray-600 mb-6">Realiza una breve verificación facial para activar tu cuenta.</p>
                             
@@ -404,6 +405,7 @@ const submit = () => {
             </div>
         </form>
 
+        <!-- MODAL DE VERIFICACIÓN -->
         <IdentityVerificationModal 
             :show="showVerificationModal" 
             @close="showVerificationModal = false" 

@@ -324,7 +324,11 @@ onUnmounted(() => {
                         >
                         <div>
                             <p class="font-bold text-sm flex items-center gap-1">{{activeTrip.driver.name}} <span class="text-yellow-500 text-xs ml-1 bg-yellow-50 px-1 rounded border border-yellow-200">★ {{ activeTrip.driver.average_rating }}</span></p>
-                            <p class="text-xs text-green-700">En camino (Rastreando 📡)</p>
+                            
+                            <p v-if="activeTrip.status === 'completed'" class="text-xs text-blue-600 font-bold">🏁 Viaje Finalizado</p>
+                            <p v-else-if="activeTrip.status === 'in_progress'" class="text-xs text-green-700">En camino (Rastreando 📡)</p>
+                            <p v-else-if="activeTrip.status === 'accepted'" class="text-xs text-indigo-700">Conductor llegando... 🚖</p>
+                            
                             <p v-if="activeTrip.driver.phone_number" class="text-xs font-bold text-gray-600 mt-1">📞 +58 {{ activeTrip.driver.phone_number }}</p>
                         </div>
                         </div>
