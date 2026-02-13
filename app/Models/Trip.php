@@ -73,4 +73,10 @@ class Trip extends Model
     {
         return $this->belongsTo(User::class, 'driver_id');
     }
+
+    // Relación con las Reseñas
+    public function reviews()
+    {
+        return $this->hasMany(Review::class);
+    }
 }

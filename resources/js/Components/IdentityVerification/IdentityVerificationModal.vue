@@ -43,7 +43,31 @@ const close = () => {
     emit('close');
 };
 
+const fileInput = ref(null);
+
+const triggerFileUpload = () => {
+    fileInput.value.click();
+};
+
+const handleFileUpload = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    // Validate size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+        alert("El archivo es muy pesad. Máximo 5MB.");
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        handleIdCaptured(e.target.result);
+    };
+    reader.readAsDataURL(file);
+};
+
 const canProceedFromId = computed(() => !!idCardImage.value);
+
 
 </script>
 
@@ -88,8 +112,22 @@ const canProceedFromId = computed(() => !!idCardImage.value);
                     <p class="text-sm text-gray-500 text-center mb-4">
                         Toma una foto clara de tu <strong>Cédula de Identidad</strong>. Asegúrate de que los textos sean legibles.
                     </p>
-                    <div class="flex justify-center">
+                    <div class="flex flex-col items-center gap-4">
                         <CameraCapture @photo-captured="handleIdCaptured" />
+                        
+                        <div class="text-gray-400 text-sm">- O -</div>
+                        
+                        <input 
+                            type="file" 
+                            ref="fileInput" 
+                            accept="image/*" 
+                            class="hidden" 
+                            @change="handleFileUpload"
+                        >
+                        
+                        <SecondaryButton @click="triggerFileUpload" type="button">
+                            📂 Subir Foto (PC/Móvil)
+                        </SecondaryButton>
                     </div>
                 </div>
 

@@ -74,9 +74,24 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
+        // Lógica corregida para "Viaje Actual":
+        // 1. O es un viaje activo (pending, accepted, in_progress)
+        // 2. O es un viaje completado QUE EL USUARIO AÚN NO HA CALIFICADO.
         $currentTrip = Trip::where('passenger_id', $user->id)
-            ->whereIn('status', ['pending', 'accepted', 'in_progress', 'completed'])
-            ->whereNull('cancelled_at')
+            ->whereNull('cancelled_at') // Ninguno cancelado
+            ->where(function ($query) use ($user) {
+                
+                // Grupo A: Viajes Activos
+                $query->whereIn('status', ['pending', 'accepted', 'in_progress'])
+                
+                // Grupo B: Viajes Completados sin reseña del usuario
+                      ->orWhere(function ($q) use ($user) {
+                          $q->where('status', 'completed')
+                            ->whereDoesntHave('reviews', function ($sq) use ($user) {
+                                $sq->where('reviewer_id', $user->id);
+                            });
+                      });
+            })
             ->with('driver')
             ->latest()
             ->first();
