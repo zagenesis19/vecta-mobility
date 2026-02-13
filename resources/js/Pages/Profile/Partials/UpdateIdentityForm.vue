@@ -16,7 +16,7 @@ const isApproved = computed(() => user.identity_status === 'approved');
 const isRejected = computed(() => user.identity_status === 'rejected');
 
 // BLOQUEOS LÓGICOS
-const isIdentityLocked = computed(() => isPending.value || isApproved.value);
+const isIdentityLocked = computed(() => isApproved.value); // Solo bloquear si YA ESTÁ APROBADO
 const isPhoneLocked = computed(() => form.processing);
 
 // MODOS DE EDICIÓN
@@ -352,14 +352,17 @@ const submit = () => {
                             <SecondaryButton @click="showVerificationModal = true" size="sm">Repetir Proceso</SecondaryButton>
                         </div>
 
-                        <!-- Caso 3: Pendiente -->
+                        <!-- Caso 3: Pendiente o No Iniciado -->
                         <div v-else>
                             <p class="text-sm text-gray-600 mb-6">Realiza una breve verificación facial para activar tu cuenta.</p>
                             
-                            <div v-if="isIdentityLocked" class="text-gray-400 italic text-sm border-2 border-dashed p-4 rounded-lg">
-                                Verificación en proceso de revisión.
+                            <!-- SOLO Bloquear si está APROBADO o si está PENDIENTE Y YA TIENE FOTO (esperando revisión) -->
+                            <div v-if="isApproved || (isPending && user.biometric_photo_path)" class="text-gray-400 italic text-sm border-2 border-dashed p-4 rounded-lg">
+                                <span v-if="isApproved">✅ Identidad Verificada.</span>
+                                <span v-else>⏳ Verificación enviada. Esperando revisión.</span>
                             </div>
                             
+                            <!-- Habilitar si NO está aprobado Y (No es pendiente O le falta la foto) -->
                             <button v-else @click.prevent="showVerificationModal = true" class="w-full py-3 bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg shadow-lg hover:shadow-xl transition-all flex items-center justify-center gap-2 group">
                                 <span class="text-xl group-hover:scale-110 transition-transform">📷</span>
                                 Iniciar Verificación
@@ -387,7 +390,15 @@ const submit = () => {
                                 <SecondaryButton v-if="editingProfilePhoto" @click="editingProfilePhoto = false; photoPreview = null;" size="sm" class="mt-2">Cancelar</SecondaryButton>
                             </div>
                             <div v-else>
-                                <SecondaryButton @click="editingProfilePhoto = true">Cambiar Foto de Perfil</SecondaryButton>
+                                <div class="relative group cursor-pointer" @click="editingProfilePhoto = true">
+                                    <div class="flex items-center gap-4 p-2 rounded-lg group-hover:bg-gray-50 transition">
+                                        <div class="flex-1">
+                                            <p class="text-sm font-bold text-gray-700 group-hover:text-indigo-600 transition">Tu foto actual</p>
+                                            <p class="text-xs text-indigo-600 opacity-0 group-hover:opacity-100 transition">Clic para cambiar</p>
+                                        </div>
+                                        <SecondaryButton size="sm">Cambiar Foto</SecondaryButton>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>

@@ -22,6 +22,7 @@ class AdminController extends Controller
     {
         // 1. Usuarios con documentos de identidad pendientes
         $users = User::where('identity_status', 'pending')
+                     ->with('vehicle') // 🔥 Cargar vehículo para inspección
                      ->orderBy('updated_at', 'asc')
                      ->get();
 

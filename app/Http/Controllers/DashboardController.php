@@ -83,7 +83,7 @@ class DashboardController extends Controller
         
         // C. PASAJERO
         $trips = Trip::where('passenger_id', $user->id)
-            ->with('driver')
+            ->with('driver.vehicle') // 🔥 Cargar vehículo
             ->latest()
             ->take(5)
             ->get();
@@ -92,7 +92,7 @@ class DashboardController extends Controller
         $currentTrip = Trip::where('passenger_id', $user->id)
             ->whereNull('cancelled_at')
             ->whereIn('status', ['pending', 'accepted', 'in_progress'])
-            ->with(['driver', 'reviews'])
+            ->with(['driver.vehicle', 'reviews']) // 🔥 Cargar vehículo
             ->latest()
             ->first();
 
@@ -102,7 +102,7 @@ class DashboardController extends Controller
             ->whereDoesntHave('reviews', function($sq) use ($user) {
                 $sq->where('reviewer_id', $user->id);
             })
-            ->with('driver')
+            ->with('driver.vehicle') // 🔥 Cargar vehículo
             ->latest()
             ->first();
 

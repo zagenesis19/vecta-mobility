@@ -74,6 +74,7 @@ class RegisteredUserController extends Controller
             'id_card_photo' => 'nullable|image|max:5120',
             'medical_certificate' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
             'rif_file' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120',
+            'circulation_permit' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120', // 🔥 Nuevo
         ]);
 
         // 1. Manejo de ARCHIVOS
@@ -102,6 +103,11 @@ class RegisteredUserController extends Controller
             $rifPath = $request->file('rif_file')->store('rifs', 'public');
         }
 
+        $circulationPath = null;
+        if ($request->hasFile('circulation_permit')) {
+            $circulationPath = $request->file('circulation_permit')->store('circulation-permits', 'public');
+        }
+
         // 2. Crear el Usuario (DATOS PERSONALES SOLAMENTE)
         // 🔥 AQUÍ QUITAMOS LOS DATOS DEL VEHÍCULO DE ESTA TABLA
         $user = User::create([
@@ -118,6 +124,7 @@ class RegisteredUserController extends Controller
             'id_card_photo_path' => $idCardPhotoPath,
             'medical_certificate_file' => $medicalPath,
             'rif_file' => $rifPath,
+            'circulation_permit_file_path' => $circulationPath, // 🔥 Guardar path
 
             'id_card_number' => $request->id_card_number,
             'phone_number' => $request->phone_number,

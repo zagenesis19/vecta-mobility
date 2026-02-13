@@ -38,6 +38,7 @@ class User extends Authenticatable
         'id_card_photo_path',
         'medical_certificate_file',
         'rif_file',
+        'circulation_permit_file_path', // 🔥 Nuevo requisito
         
         'identity_status',
         'identity_feedback',

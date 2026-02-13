@@ -105,11 +105,12 @@ const documentsUploadedCount = computed(() => {
     if (form.id_card_photo) count++;
     if (form.medical_certificate) count++;
     if (form.rif_file) count++;
+    if (form.circulation_permit) count++; // 🔥 Nuevo (6)
     return count;
 });
 
 const uploadPercentage = computed(() => {
-    return (documentsUploadedCount.value / 5) * 100;
+    return (documentsUploadedCount.value / 6) * 100;
 });
 
 // --- LÓGICA DE NAVEGACIÓN ---
@@ -424,7 +425,7 @@ const submitFinal = () => {
                 <div class="bg-white rounded-lg shadow-xl relative z-20 sm:w-full sm:max-w-xl max-h-[90vh] flex flex-col">
                     <div class="bg-indigo-600 px-4 py-3 text-white flex justify-between items-center rounded-t-lg">
                         <h3 class="font-bold">📄 Documentos Requeridos</h3>
-                        <span class="bg-white/20 px-2 py-1 rounded text-xs">{{ documentsUploadedCount }}/5 Completados</span>
+                        <span class="bg-white/20 px-2 py-1 rounded text-xs">{{ documentsUploadedCount }}/6 Completados</span>
                     </div>
                     
                     <div class="w-full bg-gray-200 h-2">
@@ -458,6 +459,10 @@ const submitFinal = () => {
                             <InputLabel value="5. RIF Vigente" class="mb-1" />
                             <input type="file" @change="form.rif_file = $event.target.files[0]" class="file-input" accept=".pdf,image/*" />
                         </div>
+                        <div class="mt-4 border-t pt-4">
+                            <InputLabel value="6. Carnet de Circulación" class="mb-1" />
+                            <input type="file" @change="form.circulation_permit = $event.target.files[0]" class="file-input" accept=".pdf,image/*" />
+                        </div>
                     </div>
 
                     <div class="bg-gray-50 px-4 py-3 flex justify-between items-center rounded-b-lg">
@@ -466,7 +471,7 @@ const submitFinal = () => {
                         <!-- BOTONES DE ACCIÓN -->
                         <div class="flex gap-2">
                             <button 
-                                v-if="documentsUploadedCount < 5"
+                                v-if="documentsUploadedCount < 6"
                                 @click="confirmDocuments"
                                 class="text-indigo-600 border border-indigo-600 px-4 py-2 rounded-md hover:bg-indigo-50 transition text-sm font-medium"
                             >
@@ -474,7 +479,7 @@ const submitFinal = () => {
                             </button>
                             
                             <PrimaryButton @click="confirmDocuments">
-                                {{ documentsUploadedCount === 5 ? 'Siguiente ➡' : 'Continuar' }}
+                                {{ documentsUploadedCount === 6 ? 'Siguiente ➡' : 'Continuar' }}
                             </PrimaryButton>
                         </div>
                     </div>
@@ -542,3 +547,4 @@ const submitFinal = () => {
     @apply block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100;
 }
 </style>
+```

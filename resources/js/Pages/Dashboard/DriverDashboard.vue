@@ -25,6 +25,7 @@ const missingDocsCount = computed(() => {
     if (!u.id_card_photo_path) missing++;
     if (!u.medical_certificate_file) missing++;
     if (!u.rif_file) missing++;
+    if (!u.circulation_permit_file_path) missing++; // 🔥 Nuevo requisito
     return missing;
 });
 

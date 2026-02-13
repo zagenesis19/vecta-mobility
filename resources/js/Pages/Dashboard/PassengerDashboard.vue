@@ -370,6 +370,15 @@ onUnmounted(() => {
                             <p v-else-if="activeTrip.status === 'accepted'" class="text-xs text-indigo-700">Conductor llegando... 🚖</p>
                             
                             <p v-if="activeTrip.driver.phone_number" class="text-xs font-bold text-gray-600 mt-1">📞 +58 {{ activeTrip.driver.phone_number }}</p>
+
+                            <!-- 🚙 DATOS DEL VEHÍCULO -->
+                            <div v-if="activeTrip.driver.vehicle" class="mt-2 text-xs bg-white bg-opacity-50 p-2 rounded border border-green-200">
+                                <p class="font-bold text-gray-800 uppercase">{{ activeTrip.driver.vehicle.model }} ({{ activeTrip.driver.vehicle.year }})</p>
+                                <p class="text-gray-600">Color: {{ activeTrip.driver.vehicle.color }}</p>
+                                <p class="text-gray-800 font-mono bg-yellow-100 inline-block px-1 rounded mt-1 border border-yellow-300">
+                                    PLACA: {{ activeTrip.driver.vehicle.plate }}
+                                </p>
+                            </div>
                         </div>
                         </div>
                         

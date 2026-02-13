@@ -18,25 +18,22 @@ const form = useForm({
     id_card_photo: null,
     medical_certificate: null,
     rif_file: null,
-    // Endpoint real
-    // Nota: Inertia maneja multipart forms automáticamente cuando hay archivos.
+    circulation_permit: null, // 🔥 Nuevo
 });
 
 const documentsUploadedCount = computed(() => {
     let count = 0;
-    // Chequear si YA tiene documentos subidos (del backend)
-    // Esto es complicado porque no tengo booleanos separados, solo las rutas.
-    // Asumiré que si hay path en el user, cuenta.
     if (user.profile_photo_path || form.profile_photo) count++;
     if (user.license_file || form.license_file) count++;
     if (user.id_card_photo_path || form.id_card_photo) count++;
     if (user.medical_certificate_file || form.medical_certificate) count++;
     if (user.rif_file || form.rif_file) count++;
+    if (user.circulation_permit_file_path || form.circulation_permit) count++; // 🔥 Nuevo check
     return count;
 });
 
 const uploadPercentage = computed(() => {
-    return (documentsUploadedCount.value / 5) * 100;
+    return (documentsUploadedCount.value / 6) * 100; // 🔥 Ahora son 6
 });
 
 const submitDocuments = () => {
@@ -68,7 +65,7 @@ const closeModal = () => {
             <div class="bg-white rounded-lg shadow-xl relative z-20 sm:w-full sm:max-w-xl max-h-[90vh] flex flex-col">
                 <div class="bg-indigo-600 px-4 py-3 text-white flex justify-between items-center rounded-t-lg">
                     <h3 class="font-bold">📄 Documentos Pendientes</h3>
-                    <span class="bg-white/20 px-2 py-1 rounded text-xs">{{ documentsUploadedCount }}/5 Completados</span>
+                    <span class="bg-white/20 px-2 py-1 rounded text-xs">{{ documentsUploadedCount }}/6 Completados</span>
                 </div>
                 
                 <div class="w-full bg-gray-200 h-2">
@@ -132,6 +129,17 @@ const closeModal = () => {
                         </div>
                         <input type="file" @change="form.rif_file = $event.target.files[0]" class="file-input" accept=".jpg,.jpeg,.png,.pdf" />
                         <InputError :message="form.errors.rif_file" class="mt-1" />
+                    </div>
+
+                    <!-- 6. Carnet de Circulación -->
+                    <div class="bg-white p-4 rounded shadow-sm">
+                         <div class="flex justify-between items-center mb-2">
+                            <InputLabel value="6. Carnet de Circulación" />
+                            <span v-if="user.circulation_permit_file_path" class="text-green-600 text-xs font-bold">✅ Subido</span>
+                            <span v-else class="text-red-500 text-xs font-bold">❌ Pendiente</span>
+                        </div>
+                        <input type="file" @change="form.circulation_permit = $event.target.files[0]" class="file-input" accept=".jpg,.jpeg,.png,.pdf" />
+                        <InputError :message="form.errors.circulation_permit" class="mt-1" />
                     </div>
                 </div>
 

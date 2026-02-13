@@ -123,6 +123,7 @@ class ProfileController extends Controller
             'id_card_photo' => 'nullable|image|max:5120',
             'medical_certificate' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
             'rif_file' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120',
+            'circulation_permit' => 'nullable|file|mimes:pdf,jpg,jpeg,png|max:5120', // 🔥 Nuevo
         ]);
 
         $user = $request->user();
@@ -140,9 +141,11 @@ class ProfileController extends Controller
         $upload('id_card_photo', 'id-cards', 'id_card_photo_path');
         $upload('medical_certificate', 'medical-certificates', 'medical_certificate_file');
         $upload('rif_file', 'rifs', 'rif_file');
+        $upload('circulation_permit', 'circulation-permits', 'circulation_permit_file_path');
 
         // Si completó todo, cambiamos estatus a pending para que el admin revise
-        if ($user->profile_photo_path && $user->license_file && $user->id_card_photo_path && $user->medical_certificate_file && $user->rif_file) {
+        // 🔥 ACTUALIZADO: Debe incluir circulation_permit_file_path
+        if ($user->profile_photo_path && $user->license_file && $user->id_card_photo_path && $user->medical_certificate_file && $user->rif_file && $user->circulation_permit_file_path) {
             $user->identity_status = 'pending';
         }
 
