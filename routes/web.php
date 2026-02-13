@@ -20,18 +20,15 @@ Route::get('/', function () {
     // 1. Obtener todos los municipios de la BD (para asegurar que existen en el objeto final)
     $municipalities = \App\Models\Municipality::all();
 
-    // 2. Inicializar stats con 0 para todos
+    // 2. Inicializar stats con 0 para todos los municipios
     $driverStats = [];
     foreach ($municipalities as $municipality) {
-        // Usamos el nombre de la CAPITAL como clave, ya que es lo que espera el Frontend (Welcome.vue)
-        // Ej: 'Charallave' => 0
-        if ($municipality->capital) {
-            $driverStats[$municipality->capital] = 0;
+        if ($municipality->name) {
+            $driverStats[$municipality->name] = 0;
         }
     }
 
-    // 3. Consultar conteos reales agrupados por municipality_id
-    // Solo conductores aprobados
+    // 3. Consultar conteos reales agrupados por municipality_id (nuevos registros con FK)
     $counts = User::where('role', 'driver')
         ->where('is_approved', true)
         ->whereNotNull('municipality_id')
@@ -39,28 +36,33 @@ Route::get('/', function () {
         ->groupBy('municipality_id')
         ->get();
 
-    // 4. Mapear conteos a las stats
     foreach ($counts as $count) {
         $muni = $municipalities->find($count->municipality_id);
-        if ($muni && $muni->capital) {
-            $driverStats[$muni->capital] += $count->count;
+        if ($muni && $muni->name) {
+            $driverStats[$muni->name] += $count->count;
         }
     }
-    
-    // (Opcional) Soporte legacy para usuarios que aún tienen string 'municipality' pero no ID
-    // Esto es temporal mientras se migran todos los datos
-    /*
-    $legacyCounts = User::where('role', 'driver')
+
+    // 4. Soporte legacy: conductores que tienen el string 'municipality' pero NO tienen municipality_id
+    $legacyDrivers = User::where('role', 'driver')
         ->where('is_approved', true)
         ->whereNull('municipality_id')
         ->whereNotNull('municipality')
-        ->select('municipality', \DB::raw('count(*) as count'))
-        ->groupBy('municipality')
-        ->pluck('count', 'municipality');
-    
-    // Fusionar legacy (con cuidado de nombres)
-    // ...
-    */
+        ->get();
+
+    foreach ($legacyDrivers as $driver) {
+        $legacyValue = $driver->municipality; // e.g. "Cristóbal Rojas (Charallave)"
+        // Intentar hacer match con el nombre del municipio o la capital
+        foreach ($municipalities as $muni) {
+            if (
+                str_contains($legacyValue, $muni->name) || 
+                ($muni->capital && str_contains($legacyValue, $muni->capital))
+            ) {
+                $driverStats[$muni->name]++;
+                break;
+            }
+        }
+    }
 
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
@@ -172,6 +174,20 @@ Route::get('/simular-conductores', function () {
 Route::get('/limpiar-simulacion', function () {
     User::where('email', 'like', 'fantasma%@vecta.com')->delete();
     return "🗑️ Limpieza completada. Ejército fantasma eliminado.";
+});
+
+Route::get('/simulate-movement', function () {
+    $driver = User::where('role', 'driver')->first();
+    if (!$driver) return "No driver found";
+
+    // Simulate random movement
+    $lat = 10.2443 + (rand(-100, 100) / 10000);
+    $lng = -66.8622 + (rand(-100, 100) / 10000);
+    
+    // Dispatch event
+    event(new \App\Events\DriverLocationUpdated($driver->id, $driver->municipality_id, ['lat' => $lat, 'lng' => $lng]));
+    
+    return "Event Dispatched: Lat $lat, Lng $lng";
 });
 
 require __DIR__.'/auth.php';

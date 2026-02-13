@@ -135,6 +135,7 @@ class RegisteredUserController extends Controller
             'country' => $request->country,
             'state' => $request->state,
             'municipality' => $request->municipality,
+            'municipality_id' => $this->resolveMunicipalityId($request->municipality),
             'phone_verified_at' => now(), // ✅ Asumimos verificado si pasó el frontend
         ]);
 
@@ -207,5 +208,27 @@ class RegisteredUserController extends Controller
         $phone = preg_replace('/[^0-9]/', '', trim($phone));
         
         return $phone;
+    }
+
+    /**
+     * Resolver municipality_id desde el string del formulario
+     * El formulario envía valores como "Cristóbal Rojas (Charallave)"
+     */
+    private function resolveMunicipalityId($municipalityString)
+    {
+        if (!$municipalityString) return null;
+
+        $municipalities = \App\Models\Municipality::all();
+        
+        foreach ($municipalities as $muni) {
+            if (
+                str_contains($municipalityString, $muni->name) || 
+                ($muni->capital && str_contains($municipalityString, $muni->capital))
+            ) {
+                return $muni->id;
+            }
+        }
+
+        return null;
     }
 }
