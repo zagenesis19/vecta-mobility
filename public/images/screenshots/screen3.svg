@@ -1,0 +1,57 @@
+<svg width="300" height="600" viewBox="0 0 300 600" xmlns="http://www.w3.org/2000/svg">
+    <!-- Background -->
+    <rect width="300" height="600" fill="#80C5DE"/>
+    
+    <!-- Pattern -->
+    <pattern id="pattern" width="20" height="20" patternUnits="userSpaceOnUse">
+        <circle cx="2" cy="2" r="1" fill="white" opacity="0.3"/>
+    </pattern>
+    <rect width="300" height="600" fill="url(#pattern)"/>
+    
+    <!-- Headline -->
+    <text x="150" y="60" text-anchor="middle" font-family="Arial, sans-serif" font-weight="bold" font-size="28" fill="#001F5B">Tarifas</text>
+    <text x="150" y="95" text-anchor="middle" font-family="Arial, sans-serif" font-weight="black" font-size="36" fill="white">JUSTAS</text>
+    
+    <!-- Phone Mockup Lower -->
+    <g transform="translate(30, 150)">
+        <rect x="0" y="0" width="240" height="500" rx="30" fill="#001F5B" stroke="#001540" stroke-width="4"/>
+        
+        <!-- App Content -->
+        <rect x="10" y="10" width="220" height="480" rx="25" fill="white"/>
+        
+        <!-- Header -->
+        <rect x="10" y="10" width="220" height="60" rx="25" fill="#F3F4F6"/>
+        <text x="120" y="50" text-anchor="middle" font-family="Arial" font-weight="bold" fill="#001F5B">Elige tu viaje</text>
+        
+        <!-- Car Options -->
+        <g transform="translate(25, 90)">
+            <!-- Option 1 Selected -->
+            <rect width="190" height="70" rx="10" fill="#EFF6FF" stroke="#001F5B" stroke-width="2"/>
+            <text x="60" y="30" font-family="Arial" font-weight="bold" font-size="14" fill="#001F5B">Vecta Moto</text>
+            <text x="60" y="50" font-family="Arial" font-size="12" fill="#6B7280">1 pers • 3 min</text>
+            <text x="150" y="40" font-family="Arial" font-weight="bold" font-size="16" fill="#001F5B">$2.50</text>
+            <!-- Bike Icon -->
+            <circle cx="30" cy="35" r="15" fill="#BFDBFE"/>
+        </g>
+        
+        <g transform="translate(25, 175)">
+            <!-- Option 2 -->
+            <rect width="190" height="70" rx="10" fill="white" stroke="#E5E7EB" stroke-width="1"/>
+            <text x="60" y="30" font-family="Arial" font-weight="bold" font-size="14" fill="#374151">Vecta Carro</text>
+            <text x="60" y="50" font-family="Arial" font-size="12" fill="#9CA3AF">4 pers • 5 min</text>
+            <text x="150" y="40" font-family="Arial" font-weight="bold" font-size="16" fill="#374151">$5.00</text>
+            <!-- Car Icon -->
+            <circle cx="30" cy="35" r="15" fill="#F3F4F6"/>
+        </g>
+        
+         <!-- Promo Tag -->
+        <g transform="translate(25, 270)">
+             <path d="M0 0 L190 0 L190 40 L0 40 Z" fill="#DCFCE7" rx="8"/>
+             <text x="95" y="25" text-anchor="middle" font-family="Arial" font-weight="bold" font-size="12" fill="#166534">🎉 20% OFF primer viaje</text>
+        </g>
+        
+        <!-- CTA -->
+        <rect x="25" y="350" width="190" height="50" rx="25" fill="#001F5B"/>
+        <text x="120" y="380" text-anchor="middle" font-family="Arial" font-weight="bold" fill="white">Solicitar</text>
+    </g>
+</svg>

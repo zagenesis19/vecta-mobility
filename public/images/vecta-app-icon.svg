@@ -1,0 +1,46 @@
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#f3f4f6;stop-opacity:1" />
+        </linearGradient>
+    </defs>
+    
+    <!-- Background Container (Rounded Square handled by CSS, but here for context if needed standalone) -->
+    <rect width="512" height="512" rx="100" fill="url(#grad1)"/>
+    
+    <!-- Logo Group -->
+    <g transform="translate(106, 106) scale(0.6)">
+        <!-- The V Shape -->
+        <path d="M0 0 L150 400 L300 0 L220 0 L150 200 L80 0 Z" fill="#001F5B"/>
+        
+        <!-- The Car Silhouette (Stylized) -->
+        <path d="M100 100 
+                 L250 120 
+                 L350 130 
+                 L380 180 
+                 L380 220 
+                 L100 210 
+                 Z" fill="#001F5B" transform="translate(50, 0)"/>
+                 
+        <!-- Arrow pointing up/right -->
+        <path d="M300 100 L400 0 L400 100 L300 100 Z" fill="#001F5B" transform="translate(0, -20)"/>
+        
+        <!-- Re-drawing a cleaner Vector based on the image perception -->
+        <!-- Since I can't trace exactly, I'll make a clean geometric version -->
+    </g>
+    
+    <!-- Clean Geometric Version replacing the above rough draft -->
+    <rect width="512" height="512" rx="0" fill="white"/> <!-- White background for the icon image itself -->
+    
+    <g transform="translate(56, 100) scale(0.8)">
+        <!-- Bold V -->
+        <path d="M100 50 L250 400 L400 50 L320 50 L250 250 L180 50 Z" fill="#001F5B"/>
+        
+        <!-- Car / Swoosh -->
+        <path d="M150 150 Q250 100 400 180 L400 220 Q250 150 150 190 Z" fill="#001F5B"/>
+        
+        <!-- Arrow -->
+        <path d="M350 100 L450 20 L450 120 Z" fill="#001F5B"/>
+    </g>
+</svg>
