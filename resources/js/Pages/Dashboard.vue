@@ -2,12 +2,12 @@
 import AuthenticatedLayout from '@/Layouts/AuthenticatedLayout.vue';
 import { Head, usePage } from '@inertiajs/vue3';
 import { onMounted, onUnmounted } from 'vue';
+import { defineAsyncComponent } from 'vue';
 import { router } from '@inertiajs/vue3';
 
-import { defineAsyncComponent } from 'vue';
-
+import DriverDashboard from '@/Pages/Dashboard/DriverDashboard.vue';
+// const DriverDashboard = defineAsyncComponent(() => import('./Dashboard/DriverDashboard.vue'));
 const AdminDashboard = defineAsyncComponent(() => import('./Dashboard/AdminDashboard.vue'));
-const DriverDashboard = defineAsyncComponent(() => import('./Dashboard/DriverDashboard.vue'));
 const PassengerDashboard = defineAsyncComponent(() => import('./Dashboard/PassengerDashboard.vue'));
 
 const props = defineProps({
@@ -20,7 +20,8 @@ const props = defineProps({
     myTrips: { type: Array, default: () => [] },
     isApproved: { type: Boolean, default: false },
 
-    currentTrip: { type: Object, default: null }
+    currentTrip: { type: Object, default: null },
+    pendingActionTrip: { type: Object, default: null } // 🔥 Nueva señal pro-activa
 });
 
 const page = usePage();
@@ -36,7 +37,7 @@ onMounted(() => {
         router.reload({ 
             preserveScroll: true,
             preserveState: true,
-            only: ['trips', 'currentTrip', 'availableTrips', 'driverLocations', 'myTrips'] // Refrescar todo lo posible
+            only: ['trips', 'currentTrip', 'availableTrips', 'driverLocations', 'myTrips', 'pendingActionTrip'] // 🔥 Incluir pendingActionTrip
         });
     }, 5000);
 });
@@ -77,11 +78,13 @@ onUnmounted(() => {
                     :available-trips="availableTrips"
                     :my-trips="myTrips"
                     :is-approved="isApproved"
+                    :pending-action-trip="pendingActionTrip"
                 />
 
                 <PassengerDashboard 
                     v-if="role === 'passenger'"
                     :current-trip="currentTrip"
+                    :pending-action-trip="pendingActionTrip"
                     :trips="trips"
                 />
 

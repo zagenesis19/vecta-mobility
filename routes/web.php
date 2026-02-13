@@ -17,27 +17,51 @@ use App\Models\Trip;
 */
 
 Route::get('/', function () {
-    // Consultar conductores aprobados agrupados por municipio
-    $driversByMunicipality = User::where('role', 'driver')
+    // 1. Obtener todos los municipios de la BD (para asegurar que existen en el objeto final)
+    $municipalities = \App\Models\Municipality::all();
+
+    // 2. Inicializar stats con 0 para todos
+    $driverStats = [];
+    foreach ($municipalities as $municipality) {
+        // Usamos el nombre de la CAPITAL como clave, ya que es lo que espera el Frontend (Welcome.vue)
+        // Ej: 'Charallave' => 0
+        if ($municipality->capital) {
+            $driverStats[$municipality->capital] = 0;
+        }
+    }
+
+    // 3. Consultar conteos reales agrupados por municipality_id
+    // Solo conductores aprobados
+    $counts = User::where('role', 'driver')
         ->where('is_approved', true)
+        ->whereNotNull('municipality_id')
+        ->select('municipality_id', \DB::raw('count(*) as count'))
+        ->groupBy('municipality_id')
+        ->get();
+
+    // 4. Mapear conteos a las stats
+    foreach ($counts as $count) {
+        $muni = $municipalities->find($count->municipality_id);
+        if ($muni && $muni->capital) {
+            $driverStats[$muni->capital] += $count->count;
+        }
+    }
+    
+    // (Opcional) Soporte legacy para usuarios que aún tienen string 'municipality' pero no ID
+    // Esto es temporal mientras se migran todos los datos
+    /*
+    $legacyCounts = User::where('role', 'driver')
+        ->where('is_approved', true)
+        ->whereNull('municipality_id')
+        ->whereNotNull('municipality')
         ->select('municipality', \DB::raw('count(*) as count'))
         ->groupBy('municipality')
-        ->pluck('count', 'municipality')
-        ->toArray();
+        ->pluck('count', 'municipality');
     
-    // Asegurar que todos los municipios estén presentes (incluso con 0 conductores)
-    $municipalities = [
-        'Charallave' => 0,
-        'Cúa' => 0,
-        'Ocumare del Tuy' => 0,
-        'San Francisco de Yare' => 0,
-        'Santa Teresa del Tuy' => 0,
-        'Santa Lucía del Tuy' => 0,
-    ];
-    
-    // Combinar con los datos reales
-    $driverStats = array_merge($municipalities, $driversByMunicipality);
-    
+    // Fusionar legacy (con cuidado de nombres)
+    // ...
+    */
+
     return Inertia::render('Welcome', [
         'canLogin' => Route::has('login'),
         'canRegister' => Route::has('register'),

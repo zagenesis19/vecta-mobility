@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted, onUnmounted } from 'vue';
+import { ref, computed, watch, onMounted, onUnmounted } from 'vue';
 import { router, usePage } from '@inertiajs/vue3';
 import axios from 'axios';
 import DriverDocumentsModal from '@/Components/DriverDocumentsModal.vue';
@@ -10,7 +10,8 @@ import StarRating from '@/Components/StarRating.vue'; // Driver also rates passe
 const props = defineProps({
     availableTrips: { type: Array, default: () => [] },
     myTrips: { type: Array, default: () => [] },
-    isApproved: { type: Boolean, default: false }
+    isApproved: { type: Boolean, default: false },
+    pendingActionTrip: { type: Object, default: null } // 🔥 Inyectado desde el server
 });
 
 const page = usePage();
@@ -30,54 +31,87 @@ const missingDocsCount = computed(() => {
 // --- ACCIONES DE VIAJE ---
 const acceptTrip = (id) => { if (confirm('¿Tomar viaje?')) router.put(route('trip.accept', id)); };
 const startTrip = (id) => { if (confirm('¿Pasajero a bordo?')) router.put(route('trips.start', id)); };
-const cancelTrip = (id) => { if(confirm('¿Cancelar?')) router.delete(route('trip.cancel', id)); }; // Simple cancel for now or use modal if needed
+const cancelTrip = (id) => { if(confirm('¿Cancelar?')) router.delete(route('trip.cancel', id)); }; 
 
 // --- FINALIZAR VIAJE Y PAGO ---
-const completedTrip = ref(null);
 const showPaymentModal = ref(false);
 const showMobilePaymentModal = ref(false);
 const showRatingModal = ref(false);
 const tripToRate = ref(null);
+const completedTrip = ref(null);
+
+// 🔥 WATCHER MAESTRO: Reacciona a lo que diga el servidor
+watch(() => props.pendingActionTrip, (trip) => {
+    if (!trip) {
+        showPaymentModal.value = false;
+        showMobilePaymentModal.value = false;
+        showRatingModal.value = false;
+        completedTrip.value = null;
+        return;
+    }
+
+    // 🛑 EVITAR BUCLE: Si ya estamos trabajando en este trip (y es el mismo ID), no reiniciamos modales
+    if (completedTrip.value && completedTrip.value.id === trip.id) {
+        // Solo actualizamos si cambió el estado de pago (ej. de false a true)
+        if (completedTrip.value.payment_confirmed !== trip.payment_confirmed) {
+            completedTrip.value = trip; // Actualizamos datos
+        } else {
+             return; // Ya está abierto, no hacemos nada
+        }
+    } else {
+        completedTrip.value = trip;
+    }
+
+    // 1. Si no ha confirmado pago
+    if (!trip.payment_confirmed) {
+        if (!showPaymentModal.value && !showMobilePaymentModal.value) { // Solo si no están ya abiertos
+            if (trip.payment_method === 'Pago Móvil') {
+                showMobilePaymentModal.value = true;
+            } else {
+                showPaymentModal.value = true;
+            }
+        }
+        showRatingModal.value = false;
+    } 
+    // 2. Si ya pagó pero no ha calificado
+    else {
+        showPaymentModal.value = false;
+        showMobilePaymentModal.value = false;
+        tripToRate.value = trip;
+        if (!showRatingModal.value) showRatingModal.value = true;
+    }
+}, { immediate: true, deep: true });
 
 const finishTrip = (trip) => { 
     if (confirm('¿Llegada?')) {
         router.put(route('trips.finish', trip.id), {}, { 
-            onSuccess: () => { 
-                completedTrip.value = trip;
-                // Si el método de pago es Pago Móvil, mostrar el modal de QR
-                if (trip.payment_method === 'Pago Móvil') {
-                    showMobilePaymentModal.value = true;
-                } else {
-                    showPaymentModal.value = true;
-                }
-            } 
+            preserveState: true,
+            preserveScroll: true
         }); 
     }
 };
 
 const confirmMobilePayment = () => {
-    if (!completedTrip.value) return;
-    axios.post(route('trip.confirmPayment', completedTrip.value.id))
+    if (!props.pendingActionTrip) return;
+    axios.post(route('trip.confirmPayment', props.pendingActionTrip.id))
         .then(() => {
-            showMobilePaymentModal.value = false;
-            tripToRate.value = completedTrip.value;
-            completedTrip.value = null;
-            showRatingModal.value = true;
-        })
-        .catch(error => console.error('Error confirmando pago:', error));
+            // El servidor actualizará payment_confirmed y el watcher hará el resto
+            router.reload({ only: ['pendingActionTrip'] });
+        });
 };
 
 const closePaymentModal = () => { 
-    showPaymentModal.value = false; 
-    tripToRate.value = completedTrip.value;
-    completedTrip.value = null;
-    showRatingModal.value = true;
+    // Para efectivo, asumimos cobro al cerrar o podrías tener un endpoint similar
+    if (!props.pendingActionTrip) return;
+     axios.post(route('trip.confirmPayment', props.pendingActionTrip.id))
+        .then(() => {
+            router.reload({ only: ['pendingActionTrip'] });
+        });
 };
 
 const handleRatingCompleted = () => {
     showRatingModal.value = false;
-    tripToRate.value = null;
-    window.location.reload();
+    router.reload(); // Limpiar todo
 };
 
 // --- RASTREO GPS (SOLO CONDUCTOR) ---
@@ -122,7 +156,9 @@ onUnmounted(() => {
 
         <div v-if="!isApproved" class="bg-yellow-50 p-8 text-center rounded-lg border-l-4 border-yellow-400"><h3 class="text-xl font-bold text-yellow-800">Cuenta en Revisión ⏳</h3></div>
         <div v-else>
-            <div class="bg-green-100 p-4 rounded-lg flex justify-between items-center mb-6"><span class="font-bold text-green-800">🟢 EN LÍNEA</span></div>
+            <div class="bg-green-100 p-4 rounded-lg flex justify-between items-center mb-6">
+                <span class="font-bold text-green-800">🟢 EN LÍNEA</span>
+            </div>
             
             <div v-for="trip in myTrips" :key="trip.id" class="bg-white p-6 rounded-xl shadow-lg border-l-4 border-blue-500 mb-4">
                 <div class="flex justify-between items-start">

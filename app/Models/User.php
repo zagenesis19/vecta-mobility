@@ -53,8 +53,18 @@ class User extends Authenticatable
         'terms_accepted',
         'country',
         'state',
-        'municipality',
+        'state',
+        'municipality', // (Optional legacy field)
+        'municipality_id', // 🔥 Clave foránea normalizada
     ];
+
+    /**
+     * Relación con Municipio (Normalizada)
+     */
+    public function municipalityRel()
+    {
+        return $this->belongsTo(Municipality::class, 'municipality_id');
+    }
 
     /**
      * The attributes that should be hidden for serialization.

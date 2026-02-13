@@ -58,10 +58,24 @@ class DashboardController extends Controller
                 ->take(10)
                 ->get();
 
+            // 🔥 SEÑAL PARA MODALES: Buscar último viaje completado sin cobrar o sin calificar
+            $pendingActionTrip = Trip::where('driver_id', $user->id)
+                ->where('status', 'completed')
+                ->where(function($q) use ($user) {
+                    $q->where('payment_confirmed', false)
+                      ->orWhereDoesntHave('reviews', function($sq) use ($user) {
+                          $sq->where('reviewer_id', $user->id);
+                      });
+                })
+                ->with('passenger')
+                ->latest()
+                ->first();
+
             return Inertia::render('Dashboard', [
-                'trips' => $myTrips, // Mantengo esto por si algo lo usa, pero myTrips es más explícito
+                'trips' => $myTrips,
                 'myTrips' => $myTrips,
                 'availableTrips' => $availableTrips,
+                'pendingActionTrip' => $pendingActionTrip, // Nueva prop
                 'userRole' => 'driver',
                 'isApproved' => (bool) $user->is_approved, 
             ]);
@@ -74,27 +88,30 @@ class DashboardController extends Controller
             ->take(5)
             ->get();
 
-        // Lógica corregida para "Viaje Actual":
-        // 1. O es un viaje activo (pending, accepted, in_progress)
-        // 2. O es un viaje completado QUE EL USUARIO AÚN NO HA CALIFICADO.
+        // Viajes Activos (Para la tarjeta principal)
         $currentTrip = Trip::where('passenger_id', $user->id)
-            ->whereNull('cancelled_at') // Ninguno cancelado
-            ->where(function ($query) use ($user) {
-                
-                // Grupo A: Viajes Activos
-                $query->whereIn('status', ['pending', 'accepted', 'in_progress'])
-                
-                // Grupo B: Viajes Completados sin reseña del usuario
-                      ->orWhere(function ($q) use ($user) {
-                          $q->where('status', 'completed')
-                            ->whereDoesntHave('reviews', function ($sq) use ($user) {
-                                $sq->where('reviewer_id', $user->id);
-                            });
-                      });
+            ->whereNull('cancelled_at')
+            ->whereIn('status', ['pending', 'accepted', 'in_progress'])
+            ->with(['driver', 'reviews'])
+            ->latest()
+            ->first();
+
+        // 🔥 SEÑAL PARA MODALES: Viaje completado sin calificar
+        $pendingActionTrip = Trip::where('passenger_id', $user->id)
+            ->where('status', 'completed')
+            ->whereDoesntHave('reviews', function($sq) use ($user) {
+                $sq->where('reviewer_id', $user->id);
             })
             ->with('driver')
             ->latest()
             ->first();
+
+        return Inertia::render('Dashboard', [
+            'trips' => $trips,       
+            'currentTrip' => $currentTrip, 
+            'pendingActionTrip' => $pendingActionTrip, // Nueva prop
+            'userRole' => 'passenger'
+        ]);
 
         return Inertia::render('Dashboard', [
             'trips' => $trips,       

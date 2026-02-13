@@ -11,8 +11,12 @@ import StarRating from '@/Components/StarRating.vue';
 
 const props = defineProps({
     currentTrip: { type: Object, default: null },
+    pendingActionTrip: { type: Object, default: null }, // 🔥 Nueva señal inyectada
     trips: { type: Array, default: () => [] }
 });
+
+// Rastreador simple para evitar re-lanzar modales de viajes ya procesados en esta sesión
+const processedTripIds = ref(new Set());
 
 // --- MAPA ---
 const zoom = ref(14); 
@@ -59,18 +63,26 @@ const form = useForm({
 });
 
 const activeTrip = computed(() => {
-    return props.currentTrip || props.trips.find(t => ['pending', 'accepted', 'in_progress', 'completed'].includes(t.status));
+    // Si el viaje actual está completado, NO lo mostramos como activo
+    if (props.currentTrip && props.currentTrip.status === 'completed') return null;
+    return props.currentTrip || props.trips.find(t => ['pending', 'accepted', 'in_progress'].includes(t.status));
 });
 
-// --- WATCHER FIN DE VIAJE ---
-watch(() => props.currentTrip, (newTrip, oldTrip) => {
-    if (newTrip && oldTrip) {
-        if (oldTrip.status === 'in_progress' && newTrip.status === 'completed') {
-            tripToRate.value = newTrip;
-            showRatingModal.value = true;
-        }
+// 🔥 WATCHER MAESTRO: Reacciona al servidor y evita duplicados
+watch(() => props.pendingActionTrip, (trip) => {
+    if (!trip) {
+        showRatingModal.value = false;
+        return;
     }
-}, { deep: true });
+
+    // Si ya procesamos este ID en esta sesión, no hacer nada
+    if (processedTripIds.value.has(trip.id)) return;
+
+    if (trip.status === 'completed') {
+        tripToRate.value = trip;
+        showRatingModal.value = true;
+    }
+}, { immediate: true, deep: true });
 
 // --- OSRM ---
 const getRouteAndDetails = async () => {
@@ -229,6 +241,9 @@ const openRatingManual = () => {
 };
 
 const handleRatingCompleted = () => {
+    if (tripToRate.value) {
+        processedTripIds.value.add(tripToRate.value.id);
+    }
     showRatingModal.value = false;
     tripToRate.value = null;
     startNewTrip();
