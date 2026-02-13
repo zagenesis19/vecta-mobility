@@ -7,6 +7,7 @@ import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
 import { ref, computed, watch } from 'vue';
 import axios from 'axios';
+import LegalContent from '@/Components/LegalContent.vue';
 
 // --- ESTADOS DE MODALES Y PASOS ---
 const showTermsModal = ref(false);      
@@ -373,8 +374,8 @@ const submitFinal = () => {
                 <div class="fixed inset-0 bg-gray-500 opacity-75" @click="showTermsModal = false"></div>
                 <div class="bg-white rounded-lg shadow-xl relative z-20 sm:w-full sm:max-w-2xl max-h-[80vh] flex flex-col">
                     <div class="p-6 overflow-y-auto flex-1">
-                        <h3 class="text-xl font-bold mb-4">Política de Privacidad</h3>
-                        <p class="text-sm text-gray-600">Al registrarte en Vecta, aceptas cumplir con nuestras normas de comunidad, seguridad y tarifas...</p>
+                        <h3 class="text-xl font-bold mb-4">Términos y Condiciones</h3>
+                        <LegalContent />
                     </div>
                     <div class="bg-gray-50 p-4 border-t flex justify-end">
                         <button @click="showTermsModal = false; form.terms_accepted = true" class="bg-blue-600 text-white px-4 py-2 rounded-md">

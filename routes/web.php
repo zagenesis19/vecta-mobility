@@ -80,16 +80,23 @@ Route::get('/google-play', function () {
     return Inertia::render('Stores/PlayStore'); 
 })->name('google-play');
 
+// Social Media Simulations
+Route::get('/instagram', function () {
+    return Inertia::render('Social/InstagramProfile'); 
+})->name('social.instagram');
+
 // 2. DASHBOARD INTELIGENTE
 Route::get('/dashboard', [App\Http\Controllers\DashboardController::class, 'index'])
     ->middleware(['auth'])
     ->name('dashboard');
 
+// 2.1 Analytics Public Route (Store Events)
+Route::post('/analytics/events', [App\Http\Controllers\Admin\AnalyticsController::class, 'store'])->name('analytics.store');
+
 // 3. GRUPO DE RUTAS AUTENTICADAS
 Route::middleware('auth')->group(function () {
     
     // Analytics Routes
-    Route::post('/analytics/events', [App\Http\Controllers\Admin\AnalyticsController::class, 'store'])->name('analytics.store');
     Route::get('/admin/analytics/stats', [App\Http\Controllers\Admin\AnalyticsController::class, 'stats'])->name('admin.analytics.stats');
     Route::get('/admin/analytics', function () {
         return \Inertia\Inertia::render('Admin/AnalyticsDashboard');

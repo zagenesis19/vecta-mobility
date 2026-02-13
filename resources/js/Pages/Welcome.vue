@@ -1,6 +1,7 @@
 <script setup>
 import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import LegalContent from '@/Components/LegalContent.vue';
 
 const props = defineProps({
     canLogin: Boolean,
@@ -14,6 +15,11 @@ const originLat = ref(null);
 const originLng = ref(null);
 const destinationLat = ref(null);
 const destinationLng = ref(null);
+
+const isMobileMenuOpen = ref(false); // 🔥 Mobile Menu State
+const toggleMobileMenu = () => isMobileMenuOpen.value = !isMobileMenuOpen.value;
+
+const showLegalModal = ref(false); // ⚖️ State for Legal Modal
 
 const originSearchResults = ref([]);
 const searchResults = ref([]); // For destination
@@ -327,7 +333,7 @@ onUnmounted(() => {
                                 class="nav-link font-medium transition-colors py-2 relative"
                                 :class="activeSection === 'conductores' ? 'vecta-link-active' : 'vecta-link'"
                             >
-                                Conductores
+                                Servicio
                             </a>
                             <a 
                                 href="#ayuda" 
@@ -350,15 +356,58 @@ onUnmounted(() => {
                                 Dashboard
                             </Link>
                             <template v-else>
-                                <Link :href="route('login')" class="font-medium transition vecta-link">Iniciar Sesión</Link>
-                                <Link v-if="canRegister" :href="route('register')" class="px-6 py-2 rounded-lg font-bold transition shadow-md vecta-btn-primary">
-                                    Descargar la App
+                                <Link v-if="canRegister" :href="route('register')" class="font-medium transition vecta-link">Registrarse</Link>
+                                <Link :href="route('login')" class="px-6 py-2 rounded-lg font-bold transition shadow-md vecta-btn-primary">
+                                    Iniciar Sesión
+                                </Link>
+                            </template>
+                        </template>
+                    </div>
+
+                    <!-- HAMBURGER BUTTON (Mobile Only) -->
+                    <div class="md:hidden flex items-center">
+                        <button @click="toggleMobileMenu" class="text-white hover:text-blue-200 focus:outline-none transition p-2">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path v-if="!isMobileMenuOpen" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                                <path v-else stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- MOBILE MENU DROPDOWN -->
+            <transition 
+                enter-active-class="transition duration-200 ease-out" 
+                enter-from-class="transform -translate-y-4 opacity-0" 
+                enter-to-class="transform translate-y-0 opacity-100"
+                leave-active-class="transition duration-150 ease-in" 
+                leave-from-class="transform translate-y-0 opacity-100" 
+                leave-to-class="transform -translate-y-4 opacity-0"
+            >
+                <div v-if="isMobileMenuOpen" class="md:hidden absolute top-16 left-0 w-full bg-[#001F5B] shadow-xl border-t border-blue-900 py-4 px-4 flex flex-col space-y-4 z-40">
+                    <a href="#inicio" @click="isMobileMenuOpen = false" class="text-white hover:text-[#80C5DE] font-medium py-2 border-b border-blue-900">Inicio</a>
+                    <a href="#nosotros" @click="isMobileMenuOpen = false" class="text-white hover:text-[#80C5DE] font-medium py-2 border-b border-blue-900">Nosotros</a>
+                    <a href="#conductores" @click="isMobileMenuOpen = false" class="text-white hover:text-[#80C5DE] font-medium py-2 border-b border-blue-900">Servicio</a>
+                    <a href="#ayuda" @click="isMobileMenuOpen = false" class="text-white hover:text-[#80C5DE] font-medium py-2 border-b border-blue-900">Ayuda</a>
+                    
+                    <div class="pt-2 flex flex-col gap-3">
+                        <template v-if="canLogin">
+                            <Link v-if="$page.props.auth.user" :href="route('dashboard')" class="text-center w-full px-6 py-3 rounded-lg font-bold transition shadow-md vecta-btn-primary">
+                                Dashboard
+                            </Link>
+                            <template v-else>
+                                <Link :href="route('login')" class="text-center w-full px-6 py-3 rounded-lg font-bold transition shadow-md vecta-btn-primary">
+                                    Iniciar Sesión
+                                </Link>
+                                <Link v-if="canRegister" :href="route('register')" class="text-center w-full text-white font-medium hover:text-[#80C5DE] py-2">
+                                    Registrarse
                                 </Link>
                             </template>
                         </template>
                     </div>
                 </div>
-            </div>
+            </transition>
         </nav>
 
         <!-- HERO SECTION -->
@@ -761,7 +810,7 @@ onUnmounted(() => {
                         <h4 class="font-bold mb-4" style="color: #80C5DE;">Inicio</h4>
                         <ul class="space-y-2" style="color: rgba(255, 255, 255, 0.8);">
                             <li><a href="#" class="hover-vecta-link transition">Nosotros</a></li>
-                            <li><a href="#" class="hover-vecta-link transition">Conductores</a></li>
+                            <li><a href="#" class="hover-vecta-link transition">Servicio</a></li>
                             <li><a href="#" class="hover-vecta-link transition">Ayuda</a></li>
                         </ul>
                     </div>
@@ -770,9 +819,11 @@ onUnmounted(() => {
                     <div>
                         <h4 class="font-bold mb-4" style="color: #80C5DE;">Legal</h4>
                         <ul class="space-y-2" style="color: rgba(255, 255, 255, 0.8);">
-                            <li><a href="#" class="hover-vecta-link transition">Términos de servicio</a></li>
-                            <li><a href="#" class="hover-vecta-link transition">Privacidad</a></li>
-                            <li><a href="#" class="hover-vecta-link transition">Contacto</a></li>
+                            <li>
+                                <a href="#" @click.prevent="showLegalModal = true" class="hover-vecta-link transition">
+                                    Términos y Condiciones
+                                </a>
+                            </li>
                         </ul>
                     </div>
 
@@ -780,14 +831,21 @@ onUnmounted(() => {
                     <div>
                         <h4 class="font-bold mb-4" style="color: #80C5DE;">Síguenos</h4>
                         <div class="flex gap-4">
-                            <a href="#" class="w-10 h-10 rounded-full flex items-center justify-center transition" style="background-color: rgba(128, 197, 222, 0.2); color: #80C5DE;" onmouseover="this.style.backgroundColor='#80C5DE'; this.style.color='#FFFFFF';" onmouseout="this.style.backgroundColor='rgba(128, 197, 222, 0.2)'; this.style.color='#80C5DE';">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.47h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.47h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg>
+                            <!-- YouTube -->
+                            <a href="https://youtube.com/@vectamobilityvenezuela?si=6Qt5mOygDOHveFuE" target="_blank" class="w-10 h-10 rounded-full flex items-center justify-center transition bg-white/5 hover:bg-red-600 text-white" title="YouTube">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z"/></svg>
                             </a>
-                            <a href="#" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-blue-600 hover:text-white transition">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M23.953 4.57a10 10 0 01-2.825.775 4.958 4.958 0 002.163-2.723c-.951.555-2.005.959-3.127 1.184a4.92 4.92 0 00-8.384 4.482C7.69 8.095 4.067 6.13 1.64 3.162a4.822 4.822 0 00-.666 2.475c0 1.71.87 3.213 2.188 4.096a4.904 4.904 0 01-2.228-.616v.06a4.923 4.923 0 003.946 4.827 4.996 4.996 0 01-2.212.085 4.936 4.936 0 004.604 3.417 9.867 9.867 0 01-6.102 2.105c-.39 0-.779-.023-1.17-.067a13.995 13.995 0 007.557 2.209c9.053 0 13.998-7.496 13.998-13.985 0-.21 0-.42-.015-.63A9.935 9.935 0 0024 4.59z"/></svg>
+                            <!-- Instagram -->
+                            <a :href="route('social.instagram')" target="_blank" class="w-10 h-10 rounded-full flex items-center justify-center transition bg-white/5 hover:bg-pink-600 text-white" title="Instagram">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 1 0 0 12.324 6.162 6.162 0 0 0 0-12.324zM12 16a4 4 0 1 1 0-8 4 4 0 0 1 0 8zm7.846-10.405a1.44 1.44 0 1 1 0-2.88 1.44 1.44 0 0 1 0 2.88z"/></svg>
                             </a>
-                            <a href="#" class="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center hover:bg-blue-600 hover:text-white transition">
-                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 0C8.74 0 8.333.015 7.053.072 5.775.132 4.905.333 4.14.63c-.789.306-1.459.717-2.126 1.384S.935 3.35.63 4.14C.333 4.905.131 5.775.072 7.053.012 8.333 0 8.74 0 12s.015 3.667.072 4.947c.06 1.277.261 2.148.558 2.913.306.788.717 1.459 1.384 2.126.667.666 1.336 1.079 2.126 1.384.766.296 1.636.499 2.913.558C8.333 23.988 8.74 24 12 24s3.667-.015 4.947-.072c1.277-.06 2.148-.262 2.913-.558.788-.306 1.459-.718 2.126-1.384.666-.667 1.079-1.335 1.384-2.126.296-.765.499-1.636.558-2.913.06-1.28.072-1.687.072-4.947s-.015-3.667-.072-4.947c-.06-1.277-.262-2.149-.558-2.913-.306-.789-.718-1.459-1.384-2.126C21.319 1.347 20.651.935 19.86.63c-.765-.297-1.636-.499-2.913-.558C15.667.012 15.26 0 12 0zm0 2.16c3.203 0 3.585.016 4.85.071 1.17.055 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.057 1.266.07 1.646.07 4.85s-.015 3.585-.074 4.85c-.061 1.17-.256 1.805-.421 2.227-.224.562-.479.96-.899 1.382-.419.419-.824.679-1.38.896-.42.164-1.065.36-2.235.413-1.274.057-1.649.07-4.859.07-3.211 0-3.586-.015-4.859-.074-1.171-.061-1.816-.256-2.236-.421-.569-.224-.96-.479-1.379-.899-.421-.419-.69-.824-.9-1.38-.165-.42-.359-1.065-.42-2.235-.045-1.26-.061-1.649-.061-4.844 0-3.196.016-3.586.061-4.861.061-1.17.255-1.814.42-2.234.21-.57.479-.96.9-1.381.419-.419.81-.689 1.379-.898.42-.166 1.051-.361 2.221-.421 1.275-.045 1.65-.06 4.859-.06l.045.03zm0 3.678c-3.405 0-6.162 2.76-6.162 6.162 0 3.405 2.76 6.162 6.162 6.162 3.405 0 6.162-2.76 6.162-6.162 0-3.405-2.76-6.162-6.162-6.162zM12 16c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4zm7.846-10.405c0 .795-.646 1.44-1.44 1.44-.795 0-1.44-.646-1.44-1.44 0-.794.646-1.439 1.44-1.439.793-.001 1.44.645 1.44 1.439z"/></svg>
+                            <!-- WhatsApp -->
+                            <a href="https://wa.me/584241928802" target="_blank" class="w-10 h-10 rounded-full flex items-center justify-center transition bg-white/5 hover:bg-green-600 text-white" title="WhatsApp">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946.003-6.556 5.338-11.891 11.893-11.891 3.181.001 6.167 1.24 8.413 3.488 2.245 2.248 3.481 5.236 3.48 8.414-.003 6.557-5.338 11.892-11.893 11.892-1.99-.001-3.951-.5-5.688-1.448l-6.305 1.654zm6.597-3.807c1.676.995 3.276 1.591 5.392 1.592 5.448 0 9.886-4.434 9.889-9.885.002-5.462-4.415-9.89-9.881-9.892-5.452 0-9.887 4.434-9.889 9.884-.001 2.225.651 3.891 1.746 5.634l-.999 3.648 3.742-.981zm11.387-5.464c-.074-.124-.272-.198-.57-.347-.297-.149-1.758-.868-2.031-.967-.272-.099-.47-.149-.669.149-.198.297-.768.967-.941 1.165-.173.198-.347.223-.644.074-.297-.149-1.255-.462-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.297-.347.446-.521.151-.172.2-.296.3-.495.099-.198.05-.372-.025-.521-.075-.148-.669-1.611-.916-2.206-.242-.579-.487-.501-.669-.51l-.57-.01c-.198 0-.52.074-.792.372s-1.04 1.016-1.04 2.479 1.065 2.876 1.213 3.074c.149.198 2.095 3.2 5.076 4.487.709.306 1.263.489 1.694.626.712.226 1.36.194 1.872.118.571-.085 1.758-.719 2.006-1.413.248-.695.248-1.29.173-1.414z"/></svg>
+                            </a>
+                            <!-- Gmail -->
+                            <a href="mailto:vectamobility@gmail.com" class="w-10 h-10 rounded-full flex items-center justify-center transition bg-white/5 hover:bg-red-500 text-white" title="Gmail">
+                                <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M24 5.457v13.909c0 .904-.732 1.636-1.636 1.636h-3.819V11.73L12 16.64l-6.545-4.91v9.273H1.636A1.636 1.636 0 0 1 0 19.366V5.457c0-2.023 2.309-3.178 3.927-1.964L5.455 4.64 12 9.548l6.545-4.91 1.528-1.145C21.69 2.28 24 3.434 24 5.457z"/></svg>
                             </a>
                         </div>
                     </div>
@@ -798,6 +856,38 @@ onUnmounted(() => {
                 </div>
             </div>
         </footer>
+
+        <!-- LEGAL MODAL -->
+        <Teleport to="body">
+            <div v-if="showLegalModal" class="fixed inset-0 z-[60] overflow-y-auto px-4 py-6 sm:px-0 flex items-center justify-center">
+                <div class="fixed inset-0 bg-gray-900 opacity-90 transition-opacity" @click="showLegalModal = false"></div>
+                
+                <div class="bg-white rounded-2xl shadow-2xl relative z-20 w-full max-w-3xl flex flex-col max-h-[90vh]">
+                    <!-- Header -->
+                    <div class="px-8 py-6 border-b flex justify-between items-center bg-gray-50 rounded-t-2xl">
+                        <h3 class="text-2xl font-black text-[#001F5B]">Términos y Condiciones</h3>
+                        <button @click="showLegalModal = false" class="text-gray-400 hover:text-gray-600 transition">
+                            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                        </button>
+                    </div>
+
+                    <!-- Content -->
+                    <div class="p-8 overflow-y-auto">
+                        <LegalContent />
+                    </div>
+
+                    <!-- Footer -->
+                    <div class="px-8 py-5 bg-gray-50 border-t rounded-b-2xl flex justify-end">
+                        <button 
+                            @click="showLegalModal = false"
+                            class="px-8 py-3 bg-[#001F5B] text-white font-bold rounded-xl hover:bg-blue-900 transition shadow-lg"
+                        >
+                            Entendido
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </Teleport>
     </div>
 </template>
 
