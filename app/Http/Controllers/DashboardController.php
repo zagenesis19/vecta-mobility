@@ -14,24 +14,60 @@ class DashboardController extends Controller
         $user = auth()->user();
 
         // A. ADMINISTRADOR
-        if ($user->role === 'admin' || $user->email === 'admin@vecta.com') {
-            $trips = Trip::with(['passenger', 'driver'])->latest()->get(); 
-            
-            // 🔥 Obtener lat/lng de conductores para el Mapa Térmico
-            $driverLocations = User::where('role', 'driver')
-                ->whereNotNull('current_lat')
-                ->whereNotNull('current_lng')
-                ->get(['current_lat', 'current_lng'])
-                ->map(function($driver) {
-                    return [(float)$driver->current_lat, (float)$driver->current_lng];
-                })->values()->all();
-            
-            return Inertia::render('Dashboard', [
-                'trips' => $trips,
-                'userRole' => 'admin',
-                'driverLocations' => $driverLocations 
-            ]);
+    if ($user->role === 'admin' || $user->email === 'admin@vecta.com') {
+        $recentTrips = Trip::with(['passenger', 'driver'])->latest()->take(10)->get(); 
+        
+        // 📊 Stats en tiempo real desde la BD
+        $adminStats = [
+            'total_trips' => Trip::count(),
+            'completed_trips' => Trip::where('status', 'completed')->count(),
+            'cancelled_trips' => Trip::where('status', 'cancelled')->count(),
+            'active_trips' => Trip::whereIn('status', ['pending', 'accepted', 'in_progress'])->count(),
+            'in_progress_trips' => Trip::where('status', 'in_progress')->count(),
+            'total_drivers' => User::where('role', 'driver')->count(),
+            'approved_drivers' => User::where('role', 'driver')->where('is_approved', true)->count(),
+            'total_passengers' => User::where('role', 'passenger')->count(),
+            'total_revenue' => Trip::where('status', 'completed')->sum('price'),
+            'avg_trip_price' => round(Trip::where('status', 'completed')->avg('price') ?? 0, 2),
+            'completion_rate' => Trip::count() > 0 
+                ? round((Trip::where('status', 'completed')->count() / Trip::count()) * 100, 1) 
+                : 0,
+            'pending_verifications' => User::where('identity_status', 'pending')->count(),
+        ];
+
+        // 🔥 Mapa de Calor: coordenadas de viajes (origin + destination)
+        $heatPoints = [];
+        
+        // 1) Conductores en línea
+        $driverLocations = User::where('role', 'driver')
+            ->whereNotNull('current_lat')
+            ->whereNotNull('current_lng')
+            ->get(['current_lat', 'current_lng'])
+            ->map(fn($d) => [(float)$d->current_lat, (float)$d->current_lng, 0.8])
+            ->values()->all();
+        $heatPoints = array_merge($heatPoints, $driverLocations);
+
+        // 2) Orígenes y destinos de viajes recientes (últimos 30 días)
+        $tripCoords = Trip::where('created_at', '>=', now()->subDays(30))
+            ->whereNotNull('origin_lat')
+            ->get(['origin_lat', 'origin_lng', 'destination_lat', 'destination_lng']);
+        
+        foreach ($tripCoords as $t) {
+            if ($t->origin_lat && $t->origin_lng) {
+                $heatPoints[] = [(float)$t->origin_lat, (float)$t->origin_lng, 0.6];
+            }
+            if ($t->destination_lat && $t->destination_lng) {
+                $heatPoints[] = [(float)$t->destination_lat, (float)$t->destination_lng, 0.4];
+            }
         }
+        
+        return Inertia::render('Dashboard', [
+            'trips' => $recentTrips,
+            'adminStats' => $adminStats,
+            'userRole' => 'admin',
+            'driverLocations' => $heatPoints,
+        ]);
+    }
 
         // B. CONDUCTOR
         if ($user->role === 'driver') {
