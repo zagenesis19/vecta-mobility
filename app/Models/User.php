@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
+use App\Models\AdminMessage;
 
 class User extends Authenticatable
 {
@@ -55,8 +56,13 @@ class User extends Authenticatable
         'country',
         'state',
         'state',
+        'state',
         'municipality', // (Optional legacy field)
         'municipality_id', // 🔥 Clave foránea normalizada
+
+        // 🔥 GESTIÓN DE USUARIOS (ADMIN)
+        'is_active',
+        'ban_reason',
     ];
 
     /**
@@ -127,5 +133,11 @@ class User extends Authenticatable
     public function getTotalRatingsAttribute()
     {
         return $this->reviewsReceived()->count();
+    }
+
+    // 🔥 RELACIÓN: Mensajes administrativos recibidos por este usuario
+    public function adminMessages()
+    {
+        return $this->hasMany(AdminMessage::class, 'user_id')->latest();
     }
 }

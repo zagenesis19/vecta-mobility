@@ -773,12 +773,12 @@ onUnmounted(() => {
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
                 <h2 class="text-3xl font-black mb-6">Empieza a viajar hoy.</h2>
                 <div class="flex justify-center gap-4">
-                    <Link :href="route('app-store')" class="hover:scale-105 transition">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="App Store" class="h-14">
-                    </Link>
-                    <Link :href="route('google-play')" class="hover:scale-105 transition">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Google Play" class="h-14">
-                    </Link>
+                    <a :href="route('app-store')" class="hover:scale-105 transition">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/3c/Download_on_the_App_Store_Badge.svg" alt="App Store" class="h-12">
+                    </a>
+                    <a :href="route('google-play')" class="hover:scale-105 transition">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/7/78/Google_Play_Store_badge_EN.svg" alt="Google Play" class="h-12">
+                    </a>
                 </div>
             </div>
         </section>

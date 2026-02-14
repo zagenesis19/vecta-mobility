@@ -49,6 +49,16 @@ class LoginRequest extends FormRequest
             ]);
         }
 
+        // 🔥 VERIFICAR SI EL USUARIO ESTÁ ACTIVO (SANCIONES)
+        $user = Auth::user();
+        if (!$user->is_active) {
+            Auth::logout(); // Cerrar sesión inmediatamente
+            
+            throw ValidationException::withMessages([
+                'email' => 'Tu cuenta ha sido suspendida. Razón: ' . ($user->ban_reason ?? 'Contacta a soporte.'),
+            ]);
+        }
+
         RateLimiter::clear($this->throttleKey());
     }
 

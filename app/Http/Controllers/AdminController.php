@@ -113,4 +113,85 @@ class AdminController extends Controller
 
         return back()->with('success', 'Solicitud rechazada y usuario eliminado.');
     }
+    /*
+    |--------------------------------------------------------------------------
+    | SECCIÓN 3: GESTIÓN DE USUARIOS (SANCIONES Y MENSAJES)
+    |--------------------------------------------------------------------------
+    */
+
+    /**
+     * Listado de usuarios (Pasajeros y Conductores) para gestión avanzada.
+     */
+    public function users(Request $request)
+    {
+        $role = $request->input('role', 'passenger'); // 'passenger' or 'driver'
+        $search = $request->input('search');
+
+        $users = User::where('role', $role)
+            ->when($search, function ($query, $search) {
+                $query->where(function ($q) use ($search) {
+                    $q->where('name', 'like', "%{$search}%")
+                      ->orWhere('email', 'like', "%{$search}%")
+                      ->orWhere('phone_number', 'like', "%{$search}%");
+                });
+            })
+            ->latest()
+            ->paginate(10)
+            ->withQueryString();
+
+        return Inertia::render('Admin/UserManagement', [
+            'users' => $users,
+            'filters' => [
+                'role' => $role,
+                'search' => $search
+            ]
+        ]);
+    }
+
+    /**
+     * Sancionar o Reactivar usuario (Toggle Status).
+     */
+    public function toggleStatus(Request $request, User $user)
+    {
+        $request->validate([
+            'ban_reason' => 'nullable|string|max:500',
+        ]);
+
+        // Si está activo, lo desactivamos (ban)
+        if ($user->is_active) {
+            $user->update([
+                'is_active' => false,
+                'ban_reason' => $request->ban_reason ?? 'Sancionado por administración.',
+            ]);
+            $message = 'Usuario sancionado correctamente.';
+        } else {
+            // Si está inactivo, lo activamos
+            $user->update([
+                'is_active' => true,
+                'ban_reason' => null,
+            ]);
+            $message = 'Usuario reactivado correctamente.';
+        }
+
+        return back()->with('success', $message);
+    }
+
+    /**
+     * Enviar mensaje administrativo (Buzón interno).
+     */
+    public function sendMessage(Request $request, User $user)
+    {
+        $request->validate([
+            'message' => 'required|string|max:1000',
+        ]);
+
+        \App\Models\AdminMessage::create([
+            'user_id' => $user->id,
+            'admin_id' => auth()->id(),
+            'subject' => 'Mensaje de Soporte Vecta',
+            'body' => $request->message,
+        ]);
+
+        return back()->with('success', 'Mensaje enviado al usuario.');
+    }
 }

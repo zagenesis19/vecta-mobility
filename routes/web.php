@@ -6,6 +6,7 @@ use App\Http\Controllers\AdminController;
 use App\Http\Controllers\ReviewController; // <--- AGREGADO: Importamos el controlador de reseñas
 use Illuminate\Foundation\Application;
 use Illuminate\Support\Facades\Route;
+use Illuminate\Support\Facades\DB;
 use Inertia\Inertia;
 use App\Models\User;
 use App\Models\Trip; 
@@ -135,9 +136,15 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::post('/verifications/{user}/approve', [AdminController::class, 'approveIdentity'])->name('admin.verifications.approve');
     Route::post('/verifications/{user}/reject', [AdminController::class, 'rejectIdentity'])->name('admin.verifications.reject');
     
+    // Gestión de Drivers (Solicitudes de ingreso)
     Route::get('/drivers', [AdminController::class, 'index'])->name('admin.drivers');
     Route::put('/drivers/{id}/approve', [AdminController::class, 'approve'])->name('admin.approve');
     Route::delete('/drivers/{id}/reject', [AdminController::class, 'reject'])->name('admin.reject');
+
+    // 🔥 GESTIÓN DE USUARIOS (SANCIONES Y MENSAJES)
+    Route::get('/users', [AdminController::class, 'users'])->name('admin.users.index');
+    Route::put('/users/{user}/status', [AdminController::class, 'toggleStatus'])->name('admin.users.status');
+    Route::post('/users/{user}/message', [AdminController::class, 'sendMessage'])->name('admin.users.message');
 });
 
 /*

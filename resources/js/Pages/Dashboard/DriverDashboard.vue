@@ -40,6 +40,7 @@ const showMobilePaymentModal = ref(false);
 const showRatingModal = ref(false);
 const tripToRate = ref(null);
 const completedTrip = ref(null);
+let pollingInterval = null; // Variable para el intervalo
 
 // 🔥 WATCHER MAESTRO: Reacciona a lo que diga el servidor
 watch(() => props.pendingActionTrip, (trip) => {
@@ -120,11 +121,26 @@ let gpsWatchId = null;
 const activeTrip = computed(() => props.myTrips.find(t => t.status === 'in_progress'));
 
 const startRealTimeTracking = () => {
+    // 1. GPS Tracking
     if (activeTrip.value && navigator.geolocation) {
         gpsWatchId = navigator.geolocation.watchPosition((pos) => {
             const { latitude, longitude } = pos.coords;
             axios.post(route('driver.location'), { lat: latitude, lng: longitude }).catch(()=>{});
         }, null, { enableHighAccuracy: true });
+    }
+
+    // 2. Polling para buscar viajes disponibles (si estamos en línea y aprobados)
+    if (props.isApproved) {
+        // Limpiamos intervalo anterior si existe
+        if (pollingInterval) clearInterval(pollingInterval);
+        
+        pollingInterval = setInterval(() => {
+            router.reload({
+                only: ['availableTrips', 'pendingActionTrip'], // Refrescamos viajes y acciones pendientes
+                preserveScroll: true,
+                preserveState: true
+            });
+        }, 4000); // Cada 4 segundos
     }
 };
 
@@ -134,6 +150,7 @@ onMounted(() => {
 
 onUnmounted(() => {
     if (gpsWatchId) navigator.geolocation.clearWatch(gpsWatchId);
+    if (pollingInterval) clearInterval(pollingInterval);
 });
 </script>
 
