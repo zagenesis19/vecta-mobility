@@ -40,7 +40,7 @@ class DashboardController extends Controller
             $availableTrips = Trip::where('status', 'pending')
                 ->whereNull('driver_id')
                 ->where('passenger_id', '!=', $user->id)
-                ->where('vehicle_type', $driverType)
+                // ->where('vehicle_type', $driverType) // 🔥 TEMPORAL: Ver todos los viajes para pruebas
                 ->with('passenger')
                 ->latest()
                 ->get();
