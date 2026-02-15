@@ -48,6 +48,13 @@ const showingNavigationDropdown = ref(false);
                                     </NavLink>
                                     <NavLink 
                                         v-if="$page.props.auth.user.role === 'admin'"
+                                        :href="route('admin.drivers')" 
+                                        :active="route().current('admin.drivers')"
+                                    >
+                                        Conductores 🚖
+                                    </NavLink>
+                                    <NavLink 
+                                        v-if="$page.props.auth.user.role === 'admin'"
                                         :href="route('admin.analytics')" 
                                         :active="route().current('admin.analytics')"
                                     >
@@ -182,6 +189,13 @@ const showingNavigationDropdown = ref(false);
                             :active="route().current('admin.analytics')"
                         >
                             Analíticas 📊
+                        </ResponsiveNavLink>
+                        <ResponsiveNavLink 
+                            v-if="$page.props.auth.user.role === 'admin'"
+                            :href="route('admin.drivers')" 
+                            :active="route().current('admin.drivers')"
+                        >
+                            Conductores 🚖
                         </ResponsiveNavLink>
                         <ResponsiveNavLink 
                             v-if="$page.props.auth.user.role === 'admin'"

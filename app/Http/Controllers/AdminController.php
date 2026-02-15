@@ -22,9 +22,9 @@ class AdminController extends Controller
     {
         // 1. Usuarios con documentos de identidad pendientes
         $users = User::where('identity_status', 'pending')
-                     ->with('vehicle') // 🔥 Cargar vehículo para inspección
-                     ->orderBy('updated_at', 'asc')
-                     ->get();
+            ->with('vehicle') // 🔥 Cargar vehículo para inspección
+            ->orderBy('updated_at', 'asc')
+            ->get();
 
         return Inertia::render('Admin/Verifications', [
             'users' => $users,              // Identidad (Docs)
@@ -75,8 +75,9 @@ class AdminController extends Controller
     public function index()
     {
         $drivers = User::where('role', 'driver')
-                        ->latest()
-                        ->get();
+            ->with('vehicle') // 🔥 Cargar datos del vehículo
+            ->latest()
+            ->get();
 
         return Inertia::render('Admin/Drivers', [
             'drivers' => $drivers
@@ -89,14 +90,14 @@ class AdminController extends Controller
     public function approve($id)
     {
         $user = User::findOrFail($id);
-        
+
         $user->update([
             'is_approved' => true,
             // Opcional: Si apruebas manualmente sin docs, puedes dejar identity en pending o approved según prefieras.
             // Aquí lo dejamos tal cual tu código anterior para no romper flujos.
-            'identity_status' => 'approved' 
+            'identity_status' => 'approved'
         ]);
-        
+
         return back()->with('success', 'Conductor aprobado manualmente.');
     }
 
@@ -106,7 +107,7 @@ class AdminController extends Controller
     public function reject($id)
     {
         $user = User::findOrFail($id);
-        
+
         // CAMBIO IMPORTANTE: Usamos delete() para que desaparezca de la lista de "Pendientes".
         // Si solo ponemos is_approved=false, seguiría apareciendo en la lista eternamente.
         $user->delete();
@@ -131,8 +132,8 @@ class AdminController extends Controller
             ->when($search, function ($query, $search) {
                 $query->where(function ($q) use ($search) {
                     $q->where('name', 'like', "%{$search}%")
-                      ->orWhere('email', 'like', "%{$search}%")
-                      ->orWhere('phone_number', 'like', "%{$search}%");
+                        ->orWhere('email', 'like', "%{$search}%")
+                        ->orWhere('phone_number', 'like', "%{$search}%");
                 });
             })
             ->latest()
