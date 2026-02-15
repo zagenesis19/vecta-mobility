@@ -11,6 +11,17 @@ Sistema de gestión de transporte con **Panel Administrativo**, **Seguridad Refo
 
 ---
 
+## 📋 Requisitos Previos
+
+Antes de instalar, asegúrate de tener el entorno preparado con las siguientes versiones:
+
+*   **PHP**: Versión `8.2` o superior (Requerido por Laravel 10).
+*   **Composer**: Última versión estable.
+*   **Node.js**: Versión `18.x` o `20.x` (LTS recomendada para Vite/Vue).
+*   **Base de Datos**: MySQL 8.0+ o MariaDB 10.x.
+
+---
+
 ## 🚀 Guía de Instalación Rápida
 
 Sigue estos pasos para instalar esta versión específica:
