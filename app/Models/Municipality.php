@@ -8,6 +8,16 @@ use Illuminate\Database\Eloquent\Model;
 class Municipality extends Model
 {
     use HasFactory;
-    
-    protected $fillable = ['name', 'capital', 'description'];
+
+    protected $fillable = [
+        'name',
+        'capital',
+        'description',
+        'svg_path',
+        'calibration_data',
+    ];
+
+    protected $casts = [
+        'calibration_data' => 'array',
+    ];
 }

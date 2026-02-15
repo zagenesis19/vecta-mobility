@@ -5,7 +5,7 @@ import InputLabel from '@/Components/InputLabel.vue';
 import PrimaryButton from '@/Components/PrimaryButton.vue';
 import TextInput from '@/Components/TextInput.vue';
 import { Head, Link, useForm } from '@inertiajs/vue3';
-import { ref, computed, watch } from 'vue';
+import { ref, computed, watch, onMounted } from 'vue';
 import axios from 'axios';
 import LegalContent from '@/Components/LegalContent.vue';
 
@@ -22,14 +22,22 @@ const otpError = ref('');
 
 // Listas de Ubicación
 const statesList = ['Miranda'];
-const municipalitiesList = [
-    'Cristóbal Rojas (Charallave)',
-    'Independencia (Santa Teresa del Tuy)',
-    'Tomás Lander (Ocumare del Tuy)',
-    'Rafael Urdaneta (Cúa)',
-    'Paz Castillo (Santa Lucía)',
-    'Simón Bolívar (San Francisco de Yare)'
-];
+const municipalitiesList = ref([]); // Reemplazado por lista dinámica
+const fetchMunicipalities = async () => {
+    try {
+        const response = await axios.get('/api/municipalities');
+        // Concatenar nombre y capital si deseas mantener el formato anterior (e.g. "Nombre (Capital)")
+        municipalitiesList.value = response.data.map(m => {
+           return m.capital ? `${m.name} (${m.capital})` : m.name;
+        });
+    } catch (e) {
+        console.error("Error fetching municipalities:", e);
+    }
+};
+
+onMounted(() => {
+    fetchMunicipalities();
+});
 
 const form = useForm({
     name: '',
@@ -95,7 +103,71 @@ watch(() => form.phone_number, (val) => {
     }
 });
 
-// ... (Resto de lógica)
+// Validación de correo electrónico
+const emailError = ref('');
+const isEmailValid = ref(false);
+
+watch(() => form.email, (val) => {
+    if (!val) {
+        emailError.value = '';
+        isEmailValid.value = false;
+        return;
+    }
+
+    // Eliminar espacios
+    const trimmed = val.trim();
+    if (trimmed !== val) {
+        form.email = trimmed;
+        return;
+    }
+
+    // Validaciones progresivas
+    if (!val.includes('@')) {
+        emailError.value = 'El correo debe contener @';
+        isEmailValid.value = false;
+        return;
+    }
+
+    const [localPart, domain] = val.split('@');
+
+    if (!localPart || localPart.length < 1) {
+        emailError.value = 'Falta el nombre de usuario antes de @';
+        isEmailValid.value = false;
+        return;
+    }
+
+    if (!domain) {
+        emailError.value = 'Falta el dominio después de @';
+        isEmailValid.value = false;
+        return;
+    }
+
+    if (!domain.includes('.')) {
+        emailError.value = 'El dominio debe contener un punto (ej: gmail.com)';
+        isEmailValid.value = false;
+        return;
+    }
+
+    const domainParts = domain.split('.');
+    const extension = domainParts[domainParts.length - 1];
+
+    if (extension.length < 2) {
+        emailError.value = 'La extensión del dominio es muy corta (ej: .com, .net)';
+        isEmailValid.value = false;
+        return;
+    }
+
+    // Regex final completa para formato estándar de email
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+    if (!emailRegex.test(val)) {
+        emailError.value = 'Formato de correo inválido';
+        isEmailValid.value = false;
+        return;
+    }
+
+    emailError.value = '';
+    isEmailValid.value = true;
+});
 
 
 // --- LÓGICA DE PROGRESO DE DOCUMENTOS ---
@@ -119,6 +191,18 @@ const uploadPercentage = computed(() => {
 const startRegistrationFlow = async () => {
     if (!form.name || !form.email || !form.id_card_number || !form.phone_number || !form.gender || !form.password) {
         alert('Por favor completa todos los campos obligatorios del formulario.');
+        return;
+    }
+
+    // Validación de correo electrónico
+    if (!isEmailValid.value) {
+        alert(emailError.value || 'Por favor ingresa un correo electrónico válido.');
+        return;
+    }
+
+    // Validación de contraseñas coincidentes
+    if (form.password !== form.password_confirmation) {
+        alert('Las contraseñas no coinciden.');
         return;
     }
 
@@ -277,7 +361,23 @@ const submitFinal = () => {
 
             <div class="mt-4">
                 <InputLabel for="email" value="Correo Electrónico" />
-                <TextInput id="email" type="email" class="mt-1 block w-full" v-model="form.email" required />
+                <div class="relative">
+                    <TextInput 
+                        id="email" 
+                        type="email" 
+                        class="mt-1 block w-full" 
+                        :class="{
+                            'border-red-500 focus:border-red-500 focus:ring-red-500': emailError && form.email,
+                            'border-green-500 focus:border-green-500 focus:ring-green-500': isEmailValid && form.email
+                        }"
+                        v-model="form.email" 
+                        required 
+                        placeholder="ejemplo@correo.com"
+                    />
+                    <span v-if="isEmailValid && form.email" class="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-lg">✓</span>
+                    <span v-else-if="emailError && form.email" class="absolute right-3 top-1/2 -translate-y-1/2 text-red-500 text-lg">✗</span>
+                </div>
+                <p v-if="emailError && form.email" class="mt-1 text-sm text-red-600">{{ emailError }}</p>
                 <InputError class="mt-2" :message="form.errors.email" />
             </div>
 

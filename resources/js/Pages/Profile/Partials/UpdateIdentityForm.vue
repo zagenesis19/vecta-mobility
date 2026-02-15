@@ -146,12 +146,13 @@ const dataURLtoFile = (dataurl, filename) => {
 }
 
 const handleVerificationComplete = ({ idCard, biometric }) => {
-    // Intentamos usar la lógica más robusta: convertir a archivo si es posible
     if (idCard) {
-        // Si el backend espera un archivo real (recomendado), usamos esto
-        form.id_card_photo = dataURLtoFile(idCard, 'capture_cedula.png');
+        // Solo convertir a archivo si es un data URL (base64), no si es una ruta de storage
+        if (idCard.startsWith('data:')) {
+            form.id_card_photo = dataURLtoFile(idCard, 'capture_cedula.png');
+        }
+        // Si es una ruta como /storage/..., la cédula ya existe en el servidor, no necesitamos re-subirla
     }
-    // Si la biometría es simplemente un string base64 para análisis facial
     if (biometric) {
         form.biometric_photo = biometric;
     }
@@ -419,6 +420,7 @@ const submit = () => {
         <!-- MODAL DE VERIFICACIÓN -->
         <IdentityVerificationModal 
             :show="showVerificationModal" 
+            :existingIdCardPath="user.id_card_photo_path"
             @close="showVerificationModal = false" 
             @completed="handleVerificationComplete"
         />

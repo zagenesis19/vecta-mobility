@@ -15,6 +15,7 @@ const props = defineProps({
     // Props específicas que vienen del controller y se pasan a los hijos
     trips: { type: Array, default: () => [] },
     driverLocations: { type: Array, default: () => [] },
+    adminStats: { type: Object, default: () => ({}) },
     
     availableTrips: { type: Array, default: () => [] },
     myTrips: { type: Array, default: () => [] },
@@ -37,7 +38,7 @@ onMounted(() => {
         router.reload({ 
             preserveScroll: true,
             preserveState: true,
-            only: ['trips', 'currentTrip', 'availableTrips', 'driverLocations', 'myTrips', 'pendingActionTrip'] // 🔥 Incluir pendingActionTrip
+            only: ['trips', 'currentTrip', 'availableTrips', 'driverLocations', 'myTrips', 'pendingActionTrip', 'adminStats']
         });
     }, 5000);
 });
@@ -70,6 +71,7 @@ onUnmounted(() => {
                 <AdminDashboard 
                     v-if="role === 'admin'" 
                     :trips="trips" 
+                    :admin-stats="adminStats"
                     :driver-locations="driverLocations" 
                 />
 

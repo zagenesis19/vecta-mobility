@@ -22,6 +22,8 @@ Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
 // Ruta para validación previa de registro
 Route::post('/validate-register-step', [RegisteredUserController::class, 'validateStep']);
 
+Route::get('/municipalities', [\App\Http\Controllers\MunicipalityController::class, 'index']);
+
 Route::get('/debug-register', function() {
     try {
         return \App\Models\User::create([

@@ -8,6 +8,7 @@ import LivenessCheck from '@/Components/IdentityVerification/LivenessCheck.vue';
 
 const props = defineProps({
     show: Boolean,
+    existingIdCardPath: { type: String, default: null }, // Si ya subió la cédula en el registro
 });
 
 const emit = defineEmits(['close', 'completed']);
@@ -16,7 +17,15 @@ const step = ref(1); // 1: Intro, 2: ID Card, 3: Liveness, 4: Review
 const idCardImage = ref(null);
 const biometricImage = ref(null);
 
-const nextStep = () => step.value++;
+const nextStep = () => {
+    // Si ya tiene la cédula subida, saltar del paso 1 (Intro) directo al 3 (Liveness)
+    if (step.value === 1 && props.existingIdCardPath) {
+        idCardImage.value = '/storage/' + props.existingIdCardPath;
+        step.value = 3;
+        return;
+    }
+    step.value++;
+};
 const prevStep = () => step.value--;
 
 const handleIdCaptured = (image) => {
@@ -98,8 +107,11 @@ const canProceedFromId = computed(() => !!idCardImage.value);
                         Para garantizar la seguridad de la plataforma, necesitamos validar que eres una persona real.
                         Solo tomará unos minutos.
                     </p>
+                    <div v-if="existingIdCardPath" class="bg-green-50 border border-green-200 rounded-lg p-3 text-sm text-green-700 max-w-sm mx-auto">
+                        ✅ Tu cédula ya fue subida. Solo necesitamos la prueba de vida.
+                    </div>
                     <ul class="text-left max-w-xs mx-auto text-sm text-gray-600 space-y-2 bg-gray-50 p-4 rounded-lg">
-                        <li>✅ Ten tu Cédula de Identidad a mano.</li>
+                        <li v-if="!existingIdCardPath">✅ Ten tu Cédula de Identidad a mano.</li>
                         <li>✅ Asegúrate de estar en un lugar iluminado.</li>
                         <li>✅ No uses lentes ni sombreros.</li>
                     </ul>

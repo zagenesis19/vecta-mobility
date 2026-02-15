@@ -99,10 +99,100 @@ class AnalyticsController extends Controller
             ->limit(10)
             ->get()
             ->map(function($ev) {
-                // Decode Meta safely
                 $ev->meta = json_decode($ev->meta);
                 return $ev;
             });
+
+        // ==========================================
+        // 6. REGISTROS POR DÍA (Line Chart - últimos 30 días)
+        // ==========================================
+        $registrationTrend = User::where('created_at', '>=', Carbon::now()->subDays(30))
+            ->select(
+                DB::raw('DATE(created_at) as date'),
+                'role',
+                DB::raw('COUNT(*) as total')
+            )
+            ->groupBy('date', 'role')
+            ->orderBy('date')
+            ->get();
+
+        // Procesar en formato {date, drivers, passengers}
+        $trendMap = [];
+        foreach ($registrationTrend as $row) {
+            $d = $row->date;
+            if (!isset($trendMap[$d])) {
+                $trendMap[$d] = ['date' => $d, 'drivers' => 0, 'passengers' => 0];
+            }
+            if ($row->role === 'driver') {
+                $trendMap[$d]['drivers'] = $row->total;
+            } else if ($row->role === 'passenger') {
+                $trendMap[$d]['passengers'] = $row->total;
+            }
+        }
+        $registrations = array_values($trendMap);
+
+        // ==========================================
+        // 7. CONDUCTORES POR MUNICIPIO (Doughnut)
+        // ==========================================
+        $driversByMunicipality = User::where('role', 'driver')
+            ->whereNotNull('municipality_id')
+            ->join('municipalities', 'users.municipality_id', '=', 'municipalities.id')
+            ->select('municipalities.name as municipality', DB::raw('COUNT(*) as total'))
+            ->groupBy('municipalities.name')
+            ->orderByDesc('total')
+            ->get();
+
+        // ==========================================
+        // 8. MÉTODOS DE PAGO (Pie Chart)
+        // ==========================================
+        $paymentMethods = Trip::where('created_at', '>=', $startDate)
+            ->where('status', 'completed')
+            ->whereNotNull('payment_method')
+            ->select('payment_method', DB::raw('COUNT(*) as total'))
+            ->groupBy('payment_method')
+            ->get();
+
+        // ==========================================
+        // 9. VIAJES POR DÍA DE SEMANA (Bar Chart)
+        // ==========================================
+        $tripsByWeekday = Trip::where('created_at', '>=', $startDate)
+            ->select(DB::raw('DAYOFWEEK(created_at) as day_num'), DB::raw('COUNT(*) as total'))
+            ->groupBy('day_num')
+            ->orderBy('day_num')
+            ->get()
+            ->map(function($row) {
+                $days = ['', 'Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+                $row->day_name = $days[$row->day_num] ?? '?';
+                return $row;
+            });
+
+        // ==========================================
+        // 10. DISTRIBUCIÓN DE CALIFICACIONES (Bar Chart)
+        // ==========================================
+        $ratingsDistribution = DB::table('reviews')
+            ->select(DB::raw('FLOOR(rating) as stars'), DB::raw('COUNT(*) as total'))
+            ->groupBy('stars')
+            ->orderBy('stars')
+            ->get();
+
+        // ==========================================
+        // 11. PANORAMA DE FLOTA (Doughnut + Stats)
+        // ==========================================
+        $fleetByType = DB::table('vehicles')
+            ->select('type', DB::raw('COUNT(*) as total'))
+            ->groupBy('type')
+            ->get();
+
+        $fleetAvgYear = DB::table('vehicles')->avg('year');
+        $fleetTotal = DB::table('vehicles')->count();
+
+        // ==========================================
+        // 12. ESTADÍSTICAS EXTRA PARA KPIs
+        // ==========================================
+        $totalDrivers = User::where('role', 'driver')->count();
+        $approvedDrivers = User::where('role', 'driver')->where('is_approved', true)->count();
+        $totalPassengers = User::where('role', 'passenger')->count();
+        $pendingVerifications = User::where('identity_status', 'pending')->count();
 
         return response()->json([
             'operational' => [
@@ -118,8 +208,24 @@ class AnalyticsController extends Controller
             ],
             'growth' => [
                 'active_users' => $activeUsers,
+                'total_drivers' => $totalDrivers,
+                'approved_drivers' => $approvedDrivers,
+                'total_passengers' => $totalPassengers,
+                'pending_verifications' => $pendingVerifications,
             ],
-            'live_feed' => $liveActivity
+            'live_feed' => $liveActivity,
+            // Nuevas gráficas
+            'registrations_trend' => $registrations,
+            'drivers_by_municipality' => $driversByMunicipality,
+            'payment_methods' => $paymentMethods,
+            'trips_by_weekday' => $tripsByWeekday,
+            'ratings_distribution' => $ratingsDistribution,
+            'fleet' => [
+                'by_type' => $fleetByType,
+                'avg_year' => round($fleetAvgYear ?? 0),
+                'total' => $fleetTotal,
+            ],
         ]);
     }
 }
+
