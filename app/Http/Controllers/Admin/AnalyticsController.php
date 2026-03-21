@@ -68,6 +68,34 @@ class AnalyticsController extends Controller
         $cancelledTrips = Trip::where('created_at', '>=', $startDate)->where('status', 'cancelled')->count();
         $cancellationRate = $totalTrips > 0 ? round(($cancelledTrips / $totalTrips) * 100, 1) : 0;
         
+        // 7. DESGLOSE DE CANCELACIONES (Por motivo y rol)
+        $cancellationStats = Trip::where('status', 'cancelled')
+            ->whereNotNull('cancellation_reason')
+            ->select('cancelled_by', 'cancellation_reason', DB::raw('count(*) as total'))
+            ->groupBy('cancelled_by', 'cancellation_reason')
+            ->get();
+
+        $passengerCancellations = $cancellationStats->where('cancelled_by', 'passenger')->values();
+        $driverCancellations = $cancellationStats->where('cancelled_by', 'driver')->values();
+
+        // 8. DESGLOSE DE RECHAZOS (Driver Rejections)
+        $rejetionEvents = DB::table('analytics_events')
+            ->where('event_type', 'driver_rejection')
+            ->where('created_at', '>=', $startDate)
+            ->get();
+            
+        $rejectionReasons = [];
+        foreach ($rejetionEvents as $event) {
+            $meta = json_decode($event->meta, true);
+            $reason = $meta['reason'] ?? 'Desconocido';
+            if (!isset($rejectionReasons[$reason])) {
+                $rejectionReasons[$reason] = ['reason' => $reason, 'total' => 0];
+            }
+            $rejectionReasons[$reason]['total']++;
+        }
+        $rejectionReasons = array_values($rejectionReasons);
+
+        
         // 2. MARKET 🏍️ vs 🚗
         $marketSplit = Trip::where('created_at', '>=', $startDate)
             ->where('status', 'completed')
@@ -199,7 +227,10 @@ class AnalyticsController extends Controller
                 'completion_rate' => $completionRate,
                 'cancellation_rate' => $cancellationRate,
                 'avg_wait_time' => round($avgWaitTime ?? 0, 1),
-                'total_trips' => $totalTrips
+                'total_trips' => $totalTrips,
+                'passenger_cancellations' => $passengerCancellations,
+                'driver_cancellations' => $driverCancellations,
+                'rejection_reasons' => $rejectionReasons,
             ],
             'market' => $marketSplit,
             'financial' => [

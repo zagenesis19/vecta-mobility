@@ -5,6 +5,10 @@ import "leaflet/dist/leaflet.css";
 import L from "leaflet"; 
 import "leaflet.heat";   
 import { LMap, LTileLayer } from "@vue-leaflet/vue-leaflet";
+import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js';
+import { Doughnut } from 'vue-chartjs';
+
+ChartJS.register(ArcElement, Tooltip, Legend);
 
 const props = defineProps({
     trips: { type: Array, default: () => [] },
@@ -59,11 +63,41 @@ const refreshStats = async () => {
             avg_trip_price: data.operational.total_trips > 0 ? (data.financial.gmv / data.operational.total_trips).toFixed(2) : 0,
             completion_rate: data.operational.completion_rate,
             pending_verifications: data.growth.pending_verifications,
+            
+            // Datos para Gráficas
+            cancellation_reasons: data.operational.cancellation_reasons || [],
+            rejection_reasons: data.operational.rejection_reasons || {},
         };
     } catch (e) {
-        // silencioso, usará datos de la carga anterior
+        // silencioso
     }
 };
+
+// --- DATA PARA GRÁFICAS ---
+const cancellationChartData = computed(() => {
+    const labels = stats.value.cancellation_reasons?.map(r => r.cancellation_reason) || [];
+    const data = stats.value.cancellation_reasons?.map(r => r.total) || [];
+    return {
+        labels,
+        datasets: [{
+            backgroundColor: ['#f87171', '#fb923c', '#fbbf24', '#a3e635', '#22d3ee', '#818cf8'],
+            data
+        }]
+    };
+});
+
+const rejectionChartData = computed(() => {
+    const labels = Object.keys(stats.value.rejection_reasons || {});
+    const data = Object.values(stats.value.rejection_reasons || {});
+    return {
+        labels,
+        datasets: [{
+            backgroundColor: ['#f472b6', '#c084fc', '#60a5fa', '#34d399', '#facc15'],
+            data
+        }]
+    };
+});
+const chartOptions = { responsive: true, maintainAspectRatio: false };
 
 // Computed helpers
 const statusColor = (status) => {
@@ -159,6 +193,27 @@ onUnmounted(() => {
                 </div>
                 <p class="text-2xl font-black">${{ Number(stats.total_revenue).toLocaleString() }}</p>
                 <p class="text-xs opacity-70 mt-1">Prom. ${{ stats.avg_trip_price }}/viaje</p>
+            </div>
+        </section>
+
+        <!-- ==========================================
+             SECCIÓN 1.5: ANÁLISIS DE MOTIVOS (Solicitud #4)
+             ========================================== -->
+        <section class="grid grid-cols-1 md:grid-cols-2 gap-6" v-if="(stats.cancellation_reasons && stats.cancellation_reasons.length > 0) || (stats.rejection_reasons && Object.keys(stats.rejection_reasons).length > 0)">
+            <!-- Motivos de Cancelación -->
+            <div class="bg-white rounded-xl shadow-sm border p-5">
+                <h3 class="font-bold text-gray-800 mb-4 flex item-center gap-2">❌ Motivos de Cancelación (Pasajeros)</h3>
+                <div class="h-64 relative">
+                    <Doughnut :data="cancellationChartData" :options="chartOptions" />
+                </div>
+            </div>
+
+            <!-- Motivos de Rechazo -->
+            <div class="bg-white rounded-xl shadow-sm border p-5">
+                <h3 class="font-bold text-gray-800 mb-4 flex item-center gap-2">⛔ Motivos de Rechazo (Conductores)</h3>
+                <div class="h-64 relative">
+                    <Doughnut :data="rejectionChartData" :options="chartOptions" />
+                </div>
             </div>
         </section>
 

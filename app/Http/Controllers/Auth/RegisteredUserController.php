@@ -45,7 +45,13 @@ class RegisteredUserController extends Controller
 
         $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|lowercase|email|max:255|unique:'.User::class,
+            // VALIDACIÓN COMPUESTA: Email único PERO solo dentro del mismo rol
+            'email' => [
+                'required', 'string', 'lowercase', 'email', 'max:255',
+                \Illuminate\Validation\Rule::unique(User::class)->where(function ($query) use ($request) {
+                    return $query->where('role', $request->role);
+                }),
+            ],
             'password' => ['required', 'confirmed', Rules\Password::defaults()],
             'role' => 'required|string|in:passenger,driver',
             
@@ -59,7 +65,13 @@ class RegisteredUserController extends Controller
             // 4. Nuevos campos de Identidad y Contacto - Mejorados
             'id_card_number' => 'required|string|min:6|max:10|regex:/^[0-9]+$/',
             // Volvemos a 10 dígitos para evitar el doble 58
-            'phone_number' => 'required|string|min:10|max:10|regex:/^[0-9]+$/|unique:'.User::class,
+            // VALIDACIÓN COMPUESTA: Teléfono único PERO solo dentro del mismo rol
+            'phone_number' => [
+                'required', 'string', 'min:10', 'max:10', 'regex:/^[0-9]+$/',
+                \Illuminate\Validation\Rule::unique(User::class)->where(function ($query) use ($request) {
+                    return $query->where('role', $request->role);
+                }),
+            ],
 
             // 5. 🔥 NUEVOS CAMPOS REQUERIDOS
             'gender' => 'required|string|in:male,female,other',
@@ -77,35 +89,38 @@ class RegisteredUserController extends Controller
             'circulation_permit' => 'nullable|file|mimes:jpg,jpeg,png,pdf|max:5120', // 🔥 Nuevo
         ]);
 
-        // 1. Manejo de ARCHIVOS
-        $licensePath = null;
-        if ($request->hasFile('license_file')) {
-            $licensePath = $request->file('license_file')->store('licenses', 'public');
-        }
-
+        // 1. Manejo de ARCHIVOS (SEGURIDAD APLICADA)
+        // Profile Photo -> Public (Avatar visible)
+        // Docs -> Secure (Solo Admin y Dueño)
+        
         $profilePhotoPath = null;
         if ($request->hasFile('profile_photo')) {
             $profilePhotoPath = $request->file('profile_photo')->store('profile-photos', 'public');
         }
 
+        $licensePath = null;
+        if ($request->hasFile('license_file')) {
+            $licensePath = $request->file('license_file')->store('licenses', 'secure');
+        }
+
         $idCardPhotoPath = null;
         if ($request->hasFile('id_card_photo')) {
-            $idCardPhotoPath = $request->file('id_card_photo')->store('id-cards', 'public');
+            $idCardPhotoPath = $request->file('id_card_photo')->store('id-cards', 'secure');
         }
 
         $medicalPath = null;
         if ($request->hasFile('medical_certificate')) {
-            $medicalPath = $request->file('medical_certificate')->store('medical-certificates', 'public');
+            $medicalPath = $request->file('medical_certificate')->store('medical-certificates', 'secure');
         }
 
         $rifPath = null;
         if ($request->hasFile('rif_file')) {
-            $rifPath = $request->file('rif_file')->store('rifs', 'public');
+            $rifPath = $request->file('rif_file')->store('rifs', 'secure');
         }
 
         $circulationPath = null;
         if ($request->hasFile('circulation_permit')) {
-            $circulationPath = $request->file('circulation_permit')->store('circulation-permits', 'public');
+            $circulationPath = $request->file('circulation_permit')->store('circulation-permits', 'secure');
         }
 
         // 2. Crear el Usuario (DATOS PERSONALES SOLAMENTE)
@@ -172,9 +187,29 @@ class RegisteredUserController extends Controller
         ]);
 
         $request->validate([
-            'email' => 'required|string|email|max:255|unique:'.User::class,
+            // Validamos email asumiendo el rol que se está intentando registrar (si no viene, asumimos passenger o driver según contexto frontend)
+            // En este paso preliminar aceptamos que chequee globalmente O idealmente deberíamos recibir el rol aquí también.
+            // Para ser estrictos con la regla de negocio: "no repetirse a excepción de que sea un rol distinto".
+            // Si el frontend manda 'role', lo usamos. Si no, ojo.
+            // Como validateStep se llama antes de elegir rol a veces, o durante, asumiremos que si existe en CUALQUIER rol te avise,
+            // SALVO que explícitamente estemos en flujo de "Login" vs "Register new Role".
+            // Para simplificar: En el paso 1 del registro SIEMPRE pedimos rol en el frontend.
+            // Asegúrate de enviar 'role' en el body de validate-register-step desde el frontend.
+
+            'role' => 'required|string|in:passenger,driver', // Agregamos validación de rol
+            'email' => [
+                'required', 'string', 'email', 'max:255',
+                \Illuminate\Validation\Rule::unique(User::class)->where(function ($query) use ($request) {
+                    return $query->where('role', $request->role);
+                }),
+            ],
             'id_card_number' => 'required|string|min:6|max:10|regex:/^[0-9]+$/',
-            'phone_number' => 'required|string|min:10|max:10|regex:/^[0-9]+$/|unique:'.User::class,
+            'phone_number' => [
+                'required', 'string', 'min:10', 'max:10', 'regex:/^[0-9]+$/',
+                \Illuminate\Validation\Rule::unique(User::class)->where(function ($query) use ($request) {
+                    return $query->where('role', $request->role);
+                }),
+            ],
         ]);
 
         return response()->json(['message' => 'Step 1 valid']);

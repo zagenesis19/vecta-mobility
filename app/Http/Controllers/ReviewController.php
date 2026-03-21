@@ -23,15 +23,19 @@ class ReviewController extends Controller
         $user = Auth::user();
 
         // 2. Seguridad: Verificar que el usuario pertenece al viaje
-        if ($user->id !== $trip->driver_id && $user->id !== $trip->passenger_id) {
+        if ($user->id != $trip->driver_id && $user->id != $trip->passenger_id) {
             return back()->withErrors(['error' => 'No puedes calificar un viaje que no es tuyo.']);
         }
 
-        // 3. Determinar a quién estamos calificando
-        $targetUserId = ($user->id === $trip->driver_id) ? $trip->passenger_id : $trip->driver_id;
+        // 3. Determinar a quién estamos calificando (Usamos == para evitar líos de tipos string vs int)
+        $targetUserId = ($user->id == $trip->driver_id) ? $trip->passenger_id : $trip->driver_id;
+
+        // 3.1 Validación extra: Si no hay un usuario destino (ej: viaje sin conductor)
+        if (!$targetUserId) {
+            return back()->withErrors(['error' => 'No se puede calificar este viaje porque no tiene un conductor o pasajero asignado.']);
+        }
 
         // 4. EVITAR DUPLICADOS (Solución al error SQLSTATE[23000])
-        // Usamos updateOrCreate para que si ya existe la combinación viaje-usuario, solo se actualice
         Review::updateOrCreate(
             [
                 'trip_id' => $trip->id,

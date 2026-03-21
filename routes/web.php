@@ -141,6 +141,9 @@ Route::middleware(['auth'])->prefix('admin')->group(function () {
     Route::put('/drivers/{id}/approve', [AdminController::class, 'approve'])->name('admin.approve');
     Route::delete('/drivers/{id}/reject', [AdminController::class, 'reject'])->name('admin.reject');
 
+    // Reject de viaje por conductor
+    Route::post('/trip/{id}/reject', [TripController::class, 'reject'])->name('trip.reject');
+
     // 🔥 GESTIÓN DE USUARIOS (SANCIONES Y MENSAJES)
     Route::get('/users', [AdminController::class, 'users'])->name('admin.users.index');
     Route::put('/users/{user}/status', [AdminController::class, 'toggleStatus'])->name('admin.users.status');
@@ -196,5 +199,37 @@ Route::get('/simulate-movement', function () {
     
     return "Event Dispatched: Lat $lat, Lng $lng";
 });
+
+Route::get('/secure-file/{path}', function ($path) {
+    // Validar autorización: Solo Admin o el Dueño del archivo
+    // Como los paths no tienen ID de usuario explícito en el nombre siempre, 
+    // verificamos si el usuario logueado tiene ese path en su registro.
+    
+    $user = auth()->user();
+    if (!$user) abort(403);
+
+    // Si es admin, pase
+    if ($user->role === 'admin' || $user->email === 'admin@vecta.com') { // Ajustar lógica de admin real
+        // Permitir
+    } else {
+        // Verificar si el archivo pertenece al usuario
+        $isOwner = (
+            $user->license_file === $path ||
+            $user->id_card_photo_path === $path ||
+            $user->medical_certificate_file === $path ||
+            $user->rif_file === $path ||
+            $user->circulation_permit_file_path === $path ||
+            $user->biometric_photo_path === $path
+        );
+
+        if (!$isOwner) abort(403, 'Unauthorized access to file.');
+    }
+
+    if (!Storage::disk('secure')->exists($path)) {
+        abort(404);
+    }
+
+    return response()->file(storage_path('app/secure/' . $path));
+})->where('path', '.*')->name('secure.file');
 
 require __DIR__.'/auth.php';

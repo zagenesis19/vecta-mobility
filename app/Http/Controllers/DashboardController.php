@@ -132,13 +132,14 @@ class DashboardController extends Controller
             ->latest()
             ->first();
 
-        // 🔥 SEÑAL PARA MODALES: Viaje completado sin calificar
+        // 🔥 SEÑAL PARA MODALES: Viaje completado sin calificar (evita bucles infinitos)
         $pendingActionTrip = Trip::where('passenger_id', $user->id)
             ->where('status', 'completed')
+            ->whereNotNull('driver_id') // 🔥 SOLO si tiene conductor
             ->whereDoesntHave('reviews', function($sq) use ($user) {
                 $sq->where('reviewer_id', $user->id);
             })
-            ->with('driver.vehicle') // 🔥 Cargar vehículo
+            ->with(['driver.vehicle', 'reviews'])
             ->latest()
             ->first();
 

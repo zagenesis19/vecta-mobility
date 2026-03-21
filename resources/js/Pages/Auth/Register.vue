@@ -20,6 +20,14 @@ const otpCodeInput = ref('');
 const isVerifyingOTP = ref(false);
 const otpError = ref('');
 
+// Validación de contraseña (Password Warning)
+const passwordWarning = computed(() => {
+    if (form.password && form.password.length < 8) {
+        return 'Tu contraseña es débil. Te recomendamos al menos 8 caracteres.';
+    }
+    return '';
+});
+
 // Listas de Ubicación
 const statesList = ['Miranda'];
 const municipalitiesList = ref([]); // Reemplazado por lista dinámica
@@ -223,7 +231,8 @@ const startRegistrationFlow = async () => {
         await axios.post('/api/validate-register-step', {
             email: form.email,
             id_card_number: form.id_card_number,
-            phone_number: form.phone_number
+            phone_number: form.phone_number,
+            role: form.role
         });
     } catch (error) {
         if (error.response && error.response.status === 422) {
@@ -433,6 +442,7 @@ const submitFinal = () => {
             <div class="mt-4">
                 <InputLabel for="password" value="Contraseña" />
                 <TextInput id="password" type="password" class="mt-1 block w-full" v-model="form.password" required />
+                <p v-if="passwordWarning" class="text-xs text-orange-500 mt-1">⚠️ {{ passwordWarning }}</p>
                 <InputError class="mt-2" :message="form.errors.password" />
             </div>
 

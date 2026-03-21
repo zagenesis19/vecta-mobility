@@ -1,31 +1,39 @@
 <script setup>
 import { computed } from 'vue';
+import { usePage } from '@inertiajs/vue3';
 
 const props = defineProps({
-    show: { type: Boolean, default: false },
-    tripData: { type: Object, required: true },
-    userRole: { type: String, required: true } // 'passenger' o 'driver'
+    show:      { type: Boolean, default: false },
+    tripData:  { type: Object,  required: true },
+    userRole:  { type: String,  required: true }, // 'passenger' o 'driver'
+    tripCost:  { type: Number,  default: null },   // Costo del viaje en USD
 });
 
 const emit = defineEmits(['close', 'confirmPayment']);
 
+const page = usePage();
+
+/** Tasa BCV oficial compartida globalmente desde el middleware de Inertia */
+const bcvRate = computed(() => page.props.bcv_rate ?? null);
+
+/** Equivalente en Bolívares, calculado sobre tripCost usando la tasa BCV */
+const costInBs = computed(() => {
+    if (!bcvRate.value || props.tripCost === null) return null;
+    return (props.tripCost * bcvRate.value).toFixed(2);
+});
+
 const paymentInfo = {
-    cedula: '31.332.083',
-    phone: '0424-1928802',
-    bank: 'Banesco',
+    cedula:  '31.332.083',
+    phone:   '0424-1928802',
+    bank:    'Banesco',
     qrImage: '/qr-pago-movil.jpg'
 };
 
 const isPassenger = computed(() => props.userRole === 'passenger');
-const isDriver = computed(() => props.userRole === 'driver');
+const isDriver    = computed(() => props.userRole === 'driver');
 
-const close = () => {
-    emit('close');
-};
-
-const confirmPayment = () => {
-    emit('confirmPayment');
-};
+const close          = () => emit('close');
+const confirmPayment = () => emit('confirmPayment');
 </script>
 
 <template>
@@ -73,7 +81,18 @@ const confirmPayment = () => {
                             <!-- Monto -->
                             <div class="bg-green-50 border-2 border-green-200 rounded-xl p-3 mb-4 text-center">
                                 <p class="text-xs text-green-700 font-semibold mb-1">Monto a {{ isPassenger ? 'pagar' : 'cobrar' }}</p>
-                                <p class="text-3xl font-black text-green-600">${{ tripData.price }}</p>
+
+                                <!-- Precio USD -->
+                                <p class="text-3xl font-black text-green-600">
+                                    ${{ tripCost ?? tripData.price }}
+                                    <span class="text-base font-semibold text-green-500">USD</span>
+                                </p>
+
+                                <!-- Equivalente Bs. (una sola línea sutil) -->
+                                <p v-if="costInBs" class="text-sm text-gray-500 mt-1">
+                                    ≈ <strong class="text-gray-700">Bs. {{ Number(costInBs).toLocaleString('es-VE', { minimumFractionDigits: 2 }) }}</strong>
+                                    <span class="text-xs text-gray-400">(BCV: {{ bcvRate?.toFixed(2) }})</span>
+                                </p>
                             </div>
 
                             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">

@@ -3,6 +3,7 @@ import { Head, Link, router } from '@inertiajs/vue3';
 import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
 import axios from 'axios';
 import LegalContent from '@/Components/LegalContent.vue';
+import BcvCalculator from '@/Components/BcvCalculator.vue';
 
 const props = defineProps({
     canLogin: Boolean,
@@ -278,6 +279,9 @@ onUnmounted(() => {
     <Head title="Vecta - Tu viaje seguro en los Valles del Tuy" />
 
     <div class="min-h-screen" style="background-color: #FFFFFF;">
+
+        <!-- 🏦 Widget flotante tasa BCV -->
+        <BcvCalculator />
         <!-- NAVBAR -->
         <nav class="shadow-sm sticky top-0 z-50" style="background-color: #001F5B;">
             <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

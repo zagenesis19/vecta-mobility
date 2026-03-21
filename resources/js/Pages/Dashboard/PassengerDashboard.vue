@@ -8,6 +8,7 @@ import { LMap, LTileLayer, LMarker, LPolyline, LPopup, LIcon } from "@vue-leafle
 import PaymentMethodModal from '@/Components/PaymentMethodModal.vue';
 import CancellationSurvey from '@/Components/CancellationSurvey.vue';
 import StarRating from '@/Components/StarRating.vue';
+import BcvCalculator from '@/Components/BcvCalculator.vue';
 
 const props = defineProps({
     currentTrip: { type: Object, default: null },
@@ -254,12 +255,17 @@ const startRealTimeTracking = () => {
     if (['accepted', 'in_progress'].includes(activeTrip.value?.status)) {
         pollingInterval = setInterval(() => {
             router.reload({
-                only: ['currentTrip'], 
+                only: ['currentTrip', 'pendingActionTrip'], // 🔥 Incluimos la señal del modal
                 onSuccess: () => {
                     if (props.currentTrip?.driver) {
                         const dLat = props.currentTrip.driver.current_lat;
                         const dLng = props.currentTrip.driver.current_lng;
                         if (dLat && dLng) driverLocation.value = [parseFloat(dLat), parseFloat(dLng)];
+                    }
+
+                    // 🔥 Si el viaje se completó, matamos el polling
+                    if (props.currentTrip?.status === 'completed') {
+                        clearInterval(pollingInterval);
                     }
                 }
             });
@@ -347,6 +353,11 @@ onUnmounted(() => {
                             <div @click="selectedVehicle = 'motorcycle'" class="cursor-pointer bg-white border-2 rounded-xl p-3 flex justify-between items-center transition hover:bg-gray-50 mb-2" :class="selectedVehicle === 'motorcycle' ? 'border-black ring-1 ring-black bg-gray-50' : 'border-gray-200'"><div class="flex items-center gap-3"><div class="bg-yellow-100 p-2 rounded-lg text-2xl">🏍️</div><div><p class="font-bold text-gray-800 text-sm">Moto</p><p class="text-xs text-gray-500">Rápido</p></div></div><span class="text-xl font-black text-gray-900">${{ priceMoto }}</span></div>
                             <div @click="selectedVehicle = 'car'" class="cursor-pointer bg-white border-2 rounded-xl p-3 flex justify-between items-center transition hover:bg-gray-50" :class="selectedVehicle === 'car' ? 'border-black ring-1 ring-black bg-gray-50' : 'border-gray-200'"><div class="flex items-center gap-3"><div class="bg-blue-100 p-2 rounded-lg text-2xl">🚗</div><div><p class="font-bold text-gray-800 text-sm">Carro</p><p class="text-xs text-gray-500">Cómodo</p></div></div><span class="text-xl font-black text-gray-900">${{ priceCar }}</span></div>
                             <button v-if="selectedVehicle" @click="submitRide" :disabled="form.processing" class="w-full bg-black text-white font-bold py-3 rounded-xl mt-4 hover:bg-gray-800 transition shadow-lg transform active:scale-95">Confirmar Viaje</button>
+
+                            <!-- 🏦 Widget Calculadora BCV -->
+                            <div class="mt-4">
+                                <BcvCalculator />
+                            </div>
                         </div>
                     </div>
                 </div>

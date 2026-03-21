@@ -7,9 +7,16 @@ use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Redirect;
+use App\Services\PricingService; // Inyectado
 
 class TripController extends Controller
 {
+    protected $pricingService;
+
+    public function __construct(PricingService $pricingService)
+    {
+        $this->pricingService = $pricingService;
+    }
     public function create()
     {
         return Inertia::render('Trips/Create');
@@ -29,19 +36,41 @@ class TripController extends Controller
             'vehicle_type' => 'nullable|string', // Aceptamos vehicle_type (car/motorcycle)
         ]);
 
-        // 2. CREACIÓN (EL PUENTE)
+        // 2. CÁLCULO DE PRECIO (Backend Authority)
+        $distance = $this->pricingService->calculateDistance(
+            $request->origin_lat, 
+            $request->origin_lng, 
+            $request->destination_lat, 
+            $request->destination_lng
+        );
+        // Estimación de tiempo (30km/h promedio en ciudad) -> 0.5 km/min
+        $duration = $distance * 2; 
+
+        $pricing = $this->pricingService->calculatePrice(
+            $distance, 
+            $duration, 
+            $request->vehicle_type ?? 'car'
+        );
+
+        $passenger = Auth::user();
+
+        // 3. CREACIÓN CON SNAPSHOT (Denormalización)
         Trip::create([
-            'passenger_id' => Auth::id(),
+            'passenger_id' => $passenger->id,
             'origin_address' => $request->origin, 
             'destination_address' => $request->destination,
             'origin_lat' => $request->origin_lat,
             'origin_lng' => $request->origin_lng,
             'destination_lat' => $request->destination_lat,
             'destination_lng' => $request->destination_lng,
-            'price' => $request->price ?? 5.00,
+            'price' => $pricing['total'], // Precio calculado por el backend
             'payment_method' => $request->payment_method,
             'status' => 'pending',
-            'vehicle_type' => $request->vehicle_type ?? 'car', // Guardamos si pidió Moto o Carro
+            'vehicle_type' => $request->vehicle_type ?? 'car', 
+            
+            // Snapshots Pasajero
+            'passenger_snapshot_name' => $passenger->name,
+            'passenger_snapshot_phone' => $passenger->phone_number,
         ]);
 
         return redirect()->route('dashboard')->with('success', '¡Viaje solicitado con éxito!');
@@ -57,9 +86,29 @@ class TripController extends Controller
             return Redirect::back()->with('error', 'Este viaje ya no está disponible.');
         }
 
+        $driver = Auth::user();
+        
+        // Cargar vehículo si no está cargado
+        if (!$driver->relationLoaded('vehicle')) {
+            $driver->load('vehicle');
+        }
+
         $trip->update([
-            'driver_id' => Auth::id(),
-            'status' => 'accepted'
+            'driver_id' => $driver->id,
+            'status' => 'accepted',
+            'accepted_at' => now(), // Importante para métricas de tiempo de espera
+
+            // Snapshots Conductor & Vehículo
+            'driver_snapshot_name' => $driver->name,
+            'driver_snapshot_phone' => $driver->phone_number,
+            'driver_snapshot_photo' => $driver->profile_photo_path,
+            'vehicle_snapshot_data' => $driver->vehicle ? json_encode([
+                'type' => $driver->vehicle->type,
+                'model' => $driver->vehicle->model,
+                'plate' => $driver->vehicle->plate,
+                'color' => $driver->vehicle->color,
+                'year' => $driver->vehicle->year,
+            ]) : null,
         ]);
 
         return redirect()->route('dashboard')->with('success', 'Has aceptado el viaje. ¡Ve a recoger al pasajero!');
@@ -155,6 +204,49 @@ class TripController extends Controller
         ]);
 
         return redirect()->route('dashboard')->with('success', 'Viaje cancelado.');
+    }
+
+    // Nuevo método: Rechazar viaje (Conductor)
+    public function reject(Request $request, $id)
+    {
+        $request->validate([
+            'reason' => 'required|string|max:255',
+        ]);
+
+        $trip = Trip::findOrFail($id);
+        
+        // Verificar que esté pendiente (no aceptado por otro)
+        if ($trip->status !== 'pending') {
+             return back()->with('error', 'El viaje ya no está disponible.');
+        }
+
+        // Simplemente registramos el rechazo en analytics (o una tabla de rechazos)
+        // Y el viaje sigue 'pending' para otros conductores.
+        // PERO el usuario pidió: "rechace una solicitud... motivo".
+        // Si el conductor rechaza, ¿se cancela el viaje? No, debería pasar a otro conductor.
+        // Si es una asignación directa, sí. Pero aquí es un pool de "Disponibles".
+        // Si es un pool, "Rechazar" significa "Ocultar de mi lista".
+        // O si el sistema asignó uno a uno (no parece ser el caso, es 'availableTrips').
+        
+        // ASUMIMOS LÓGICA DE NEGOCIO:
+        // El conductor marca "Rechazar" para indicar por qué no lo toma (feedback analytics).
+        // El viaje sigue disponible para otros.
+        
+        // Guardamos el evento de rechazo en la tabla de analytics (usando el controller de analytics o DB directa)
+        // O creamos una relación, pero para simplificar según instrucciones:
+        // "analiticas... motivos de rechazo del conductor".
+        
+        \DB::table('analytics_events')->insert([
+            'user_id' => Auth::id(),
+            'session_id' => request()->session()->getId(), // 🔥 Fix: Added missing session_id
+            'event_type' => 'driver_rejection',
+            'target' => $trip->id,
+            'meta' => json_encode(['reason' => $request->reason, 'trip_id' => $trip->id]),
+            'created_at' => now(),
+            'updated_at' => now(),
+        ]);
+
+        return back()->with('success', 'Has rechazado la solicitud.');
     }
 
     // Nuevo método: Obtener historial de viajes

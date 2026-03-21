@@ -58,6 +58,13 @@ const rejectIdentity = () => {
         onSuccess: () => closeModal(),
     });
 };
+
+// Helper: Secure URL
+const getDocumentUrl = (path) => {
+    if (!path) return '#';
+    return `/secure-file/${path}`;
+};
+
 </script>
 
 <template>
@@ -171,6 +178,15 @@ const rejectIdentity = () => {
                             <span class="text-lg font-bold">{{ selectedUser.phone_number }}</span>
                         </div>
                         
+                        <!-- 📷 FOTO DE PERFIL (Solicitud #6) -->
+                        <div class="bg-gray-50 p-3 rounded border">
+                            <span class="block text-xs text-gray-500 uppercase mb-1">Foto de Perfil</span>
+                             <div class="flex justify-center">
+                                <img v-if="selectedUser.profile_photo_path" :src="'/storage/' + selectedUser.profile_photo_path" class="h-24 w-24 rounded-full object-cover border-2 border-indigo-200">
+                                <span v-else class="text-xs text-gray-400">Sin foto</span>
+                            </div>
+                        </div>
+                        
                         <!-- 🚙 DATOS DEL VEHÍCULO (Solo Conductores) -->
                         <div v-if="selectedUser.role === 'driver' && selectedUser.vehicle" class="bg-yellow-50 p-3 rounded border border-yellow-200">
                             <h4 class="font-bold text-xs text-yellow-800 mb-2 border-b border-yellow-200 pb-1">🚙 VEHÍCULO DECLARADO</h4>
@@ -196,14 +212,14 @@ const rejectIdentity = () => {
                         <div>
                             <span class="block text-xs text-gray-500 uppercase mb-1">Foto Documento</span>
                             <div class="border rounded p-1 bg-gray-100 flex justify-center">
-                                <img v-if="selectedUser.id_card_photo_path" :src="'/storage/' + selectedUser.id_card_photo_path" class="h-32 object-contain cursor-pointer hover:scale-105 transition" onclick="window.open(this.src)">
+                                <img v-if="selectedUser.id_card_photo_path" :src="getDocumentUrl(selectedUser.id_card_photo_path)" class="h-32 object-contain cursor-pointer hover:scale-105 transition" onclick="window.open(this.src)">
                                 <span v-else class="text-xs text-gray-400 py-4">Sin archivo</span>
                             </div>
                         </div>
                         <div>
                             <span class="block text-xs text-gray-500 uppercase mb-1">Biometría</span>
                             <div class="border rounded p-1 bg-gray-100 flex justify-center">
-                                <img v-if="selectedUser.biometric_photo_path" :src="'/storage/' + selectedUser.biometric_photo_path" class="h-32 object-contain cursor-pointer hover:scale-105 transition" onclick="window.open(this.src)">
+                                <img v-if="selectedUser.biometric_photo_path" :src="getDocumentUrl(selectedUser.biometric_photo_path)" class="h-32 object-contain cursor-pointer hover:scale-105 transition" onclick="window.open(this.src)">
                                 <span v-else class="text-xs text-gray-400 py-4">Sin archivo</span>
                             </div>
                         </div>
@@ -215,22 +231,22 @@ const rejectIdentity = () => {
                              <div class="grid grid-cols-4 gap-2">
                                  <div class="text-center">
                                      <span class="text-[10px] uppercase block mb-1">Licencia</span>
-                                     <a v-if="selectedUser.license_file" :href="'/storage/' + selectedUser.license_file" target="_blank" class="block bg-blue-50 text-blue-600 text-xs font-bold py-2 rounded hover:bg-blue-100 border border-blue-200">Ver 📄</a>
+                                     <a v-if="selectedUser.license_file" :href="getDocumentUrl(selectedUser.license_file)" target="_blank" class="block bg-blue-50 text-blue-600 text-xs font-bold py-2 rounded hover:bg-blue-100 border border-blue-200">Ver 📄</a>
                                      <span v-else class="text-xs text-red-400">Falta</span>
                                  </div>
                                  <div class="text-center">
                                      <span class="text-[10px] uppercase block mb-1">C. Médico</span>
-                                     <a v-if="selectedUser.medical_certificate_file" :href="'/storage/' + selectedUser.medical_certificate_file" target="_blank" class="block bg-blue-50 text-blue-600 text-xs font-bold py-2 rounded hover:bg-blue-100 border border-blue-200">Ver 📄</a>
+                                     <a v-if="selectedUser.medical_certificate_file" :href="getDocumentUrl(selectedUser.medical_certificate_file)" target="_blank" class="block bg-blue-50 text-blue-600 text-xs font-bold py-2 rounded hover:bg-blue-100 border border-blue-200">Ver 📄</a>
                                      <span v-else class="text-xs text-red-400">Falta</span>
                                  </div>
                                  <div class="text-center">
                                      <span class="text-[10px] uppercase block mb-1">RIF</span>
-                                     <a v-if="selectedUser.rif_file" :href="'/storage/' + selectedUser.rif_file" target="_blank" class="block bg-blue-50 text-blue-600 text-xs font-bold py-2 rounded hover:bg-blue-100 border border-blue-200">Ver 📄</a>
+                                     <a v-if="selectedUser.rif_file" :href="getDocumentUrl(selectedUser.rif_file)" target="_blank" class="block bg-blue-50 text-blue-600 text-xs font-bold py-2 rounded hover:bg-blue-100 border border-blue-200">Ver 📄</a>
                                      <span v-else class="text-xs text-red-400">Falta</span>
                                  </div>
                                  <div class="text-center">
                                      <span class="text-[10px] uppercase block mb-1">Circulación</span>
-                                     <a v-if="selectedUser.circulation_permit_file_path" :href="'/storage/' + selectedUser.circulation_permit_file_path" target="_blank" class="block bg-blue-50 text-blue-600 text-xs font-bold py-2 rounded hover:bg-blue-100 border border-blue-200">Ver 📄</a>
+                                     <a v-if="selectedUser.circulation_permit_file_path" :href="getDocumentUrl(selectedUser.circulation_permit_file_path)" target="_blank" class="block bg-blue-50 text-blue-600 text-xs font-bold py-2 rounded hover:bg-blue-100 border border-blue-200">Ver 📄</a>
                                      <span v-else class="text-xs text-red-400">Falta</span>
                                  </div>
                              </div>

@@ -181,6 +181,51 @@ const fleetChartData = computed(() => {
     };
 });
 
+// 8. Cancelaciones Pasajeros (Doughnut)
+const passengerCancellationChartData = computed(() => {
+    const data = stats.value?.operational?.passenger_cancellations || [];
+    if (!data.length) return { labels: [], datasets: [] };
+    return {
+        labels: data.map(c => c.cancellation_reason),
+        datasets: [{
+            data: data.map(c => c.total),
+            backgroundColor: CHART_COLORS,
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    };
+});
+
+// 9. Cancelaciones Conductores (Doughnut)
+const driverCancellationChartData = computed(() => {
+    const data = stats.value?.operational?.driver_cancellations || [];
+    if (!data.length) return { labels: [], datasets: [] };
+    return {
+        labels: data.map(c => c.cancellation_reason),
+        datasets: [{
+            data: data.map(c => c.total),
+            backgroundColor: CHART_COLORS,
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    };
+});
+
+// 10. Rechazos Conductores (Doughnut)
+const rejectionChartData = computed(() => {
+    const data = stats.value?.operational?.rejection_reasons || [];
+    if (!data.length) return { labels: [], datasets: [] };
+    return {
+        labels: data.map(r => r.reason),
+        datasets: [{
+            data: data.map(r => r.total),
+            backgroundColor: CHART_COLORS,
+            borderWidth: 2,
+            borderColor: '#fff'
+        }]
+    };
+});
+
 // Chart Options
 const barOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } };
 const lineOptions = { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'top' } }, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } } };
@@ -349,9 +394,6 @@ onUnmounted(() => {
                     </div>
                 </section>
 
-                <!-- ==========================================
-                     ROW 4: VIAJES x DÍA + RATINGS + FLOTA
-                     ========================================== -->
                 <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                     <!-- Viajes por Día de Semana -->
                     <div class="bg-white p-6 rounded-2xl shadow-sm border">
@@ -387,6 +429,42 @@ onUnmounted(() => {
                                 <div class="text-gray-500">Año Promedio</div>
                                 <div class="font-bold text-gray-900">{{ stats.fleet.avg_year }}</div>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+
+                <!-- ==========================================
+                     ROW 5: DESGLOSE DE MOTIVOS (DONAS 🍩)
+                     ========================================== -->
+                <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border">
+                        <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            ❌ Cancelaciones Pasajero
+                        </h3>
+                        <div class="h-56">
+                            <Doughnut v-if="passengerCancellationChartData.datasets.length" :data="passengerCancellationChartData" :options="doughnutOptions" />
+                            <div v-else class="h-full flex items-center justify-center text-gray-400 text-sm italic">Sin datos de cancelación</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border">
+                        <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            ❌ Cancelaciones Conductor
+                        </h3>
+                        <div class="h-56">
+                            <Doughnut v-if="driverCancellationChartData.datasets.length" :data="driverCancellationChartData" :options="doughnutOptions" />
+                            <div v-else class="h-full flex items-center justify-center text-gray-400 text-sm italic">Sin datos de cancelación</div>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-2xl shadow-sm border border-l-4 border-l-red-500">
+                        <h3 class="font-bold text-gray-800 mb-4 flex items-center gap-2">
+                            ❌ Rechazos Conductor
+                        </h3>
+                        <div class="h-56">
+                            <Doughnut v-if="rejectionChartData.datasets.length" :data="rejectionChartData" :options="doughnutOptions" />
+                            <div v-else class="h-full flex items-center justify-center text-gray-400 text-sm italic">Sin datos de rechazo</div>
                         </div>
                     </div>
                 </section>

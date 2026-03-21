@@ -6,6 +6,7 @@ import DriverDocumentsModal from '@/Components/DriverDocumentsModal.vue';
 import PaymentMethodModal from '@/Components/PaymentMethodModal.vue';
 import MobilePaymentModal from '@/Components/MobilePaymentModal.vue';
 import StarRating from '@/Components/StarRating.vue'; // Driver also rates passenger
+import RejectionSurvey from '@/Components/RejectionSurvey.vue';
 
 const props = defineProps({
     availableTrips: { type: Array, default: () => [] },
@@ -41,6 +42,43 @@ const showRatingModal = ref(false);
 const tripToRate = ref(null);
 const completedTrip = ref(null);
 let pollingInterval = null; // Variable para el intervalo
+
+// RECHAZO DE VIAJES
+const showRejectModal = ref(false);
+const tripToReject = ref(null);
+
+// FUNCIONES DE TEXTO A VOZ (AI READER)
+const speakRequest = (trip) => {
+    if (!('speechSynthesis' in window)) return;
+    
+    // Configurar frase
+    const text = `Solicitud de viaje. Pasajero ${trip.passenger ? trip.passenger.name : 'Anónimo'}. Tarifa ${trip.price} dólares. Origen: ${trip.origin_address}. Destino: ${trip.destination_address}.`;
+    
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = 'es-ES'; // Español
+    utterance.rate = 1.1; // Un poco más rápido
+    
+    window.speechSynthesis.cancel(); // Cancelar anterior
+    window.speechSynthesis.speak(utterance);
+};
+
+const openRejectModal = (trip) => {
+    tripToReject.value = trip;
+    showRejectModal.value = true;
+};
+
+const submitRejection = (reason) => {
+    if (!tripToReject.value || !reason) return;
+    
+    router.post(route('trip.reject', tripToReject.value.id), {
+        reason: reason
+    }, {
+        onSuccess: () => {
+            showRejectModal.value = false;
+            tripToReject.value = null;
+        }
+    });
+};
 
 // 🔥 WATCHER MAESTRO: Reacciona a lo que diga el servidor
 watch(() => props.pendingActionTrip, (trip) => {
@@ -225,7 +263,11 @@ onUnmounted(() => {
                 </div>
                 <p class="text-sm">📍 {{trip.origin_address}}</p>
                 <p class="font-bold text-sm">🏁 {{trip.destination_address}}</p>
-                <button @click="acceptTrip(trip.id)" class="w-full mt-3 bg-gray-100 hover:bg-green-500 hover:text-white py-2 rounded-lg font-bold">Aceptar</button>
+                <div class="flex gap-2 mt-3">
+                    <button @click="openRejectModal(trip)" class="flex-1 bg-red-50 text-red-600 hover:bg-red-100 py-2 rounded-lg font-bold border border-red-200">Rechazar ❌</button>
+                    <button @click="acceptTrip(trip.id)" class="flex-[2] bg-gray-100 hover:bg-green-500 hover:text-white py-2 rounded-lg font-bold">Aceptar ✅</button>
+                    <button @click="speakRequest(trip)" class="bg-blue-100 text-blue-600 p-2 rounded-lg" title="Escuchar">🔊</button>
+                </div>
             </div>
         </div>
 
@@ -242,16 +284,25 @@ onUnmounted(() => {
         <MobilePaymentModal 
             :show="showMobilePaymentModal"
             :tripData="completedTrip || { price: 0, payment_method: 'Pago Móvil' }"
+            :tripCost="completedTrip?.price ? Number(completedTrip.price) : null"
             userRole="driver"
             @close="showMobilePaymentModal = false"
             @confirmPayment="confirmMobilePayment"
         />
+
 
         <StarRating 
             v-if="showRatingModal" 
             :trip="tripToRate" 
             userRole="driver"
             @close="handleRatingCompleted" 
+        />
+
+        <RejectionSurvey 
+            :show="showRejectModal"
+            :tripId="tripToReject?.id || 0"
+            @close="showRejectModal = false"
+            @confirm="submitRejection"
         />
     </div>
 </template>

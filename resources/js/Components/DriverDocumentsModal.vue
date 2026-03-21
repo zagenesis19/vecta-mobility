@@ -11,24 +11,30 @@ const props = defineProps({
 
 const emit = defineEmits(['close']);
 
-const user = usePage().props.auth.user;
+const page = usePage();
+
+/** Usuario reactivo: se actualiza automáticamente cuando Inertia recarga auth.user */
+const user = computed(() => page.props.auth.user);
+
 const form = useForm({
     profile_photo: null, 
     license_file: null,
     id_card_photo: null,
     medical_certificate: null,
     rif_file: null,
-    circulation_permit: null, // 🔥 Nuevo
+    circulation_permit: null,
 });
 
+
 const documentsUploadedCount = computed(() => {
+    const u = user.value;
     let count = 0;
-    if (user.profile_photo_path || form.profile_photo) count++;
-    if (user.license_file || form.license_file) count++;
-    if (user.id_card_photo_path || form.id_card_photo) count++;
-    if (user.medical_certificate_file || form.medical_certificate) count++;
-    if (user.rif_file || form.rif_file) count++;
-    if (user.circulation_permit_file_path || form.circulation_permit) count++; // 🔥 Nuevo check
+    if (u?.profile_photo_path || form.profile_photo) count++;
+    if (u?.license_file || form.license_file) count++;
+    if (u?.id_card_photo_path || form.id_card_photo) count++;
+    if (u?.medical_certificate_file || form.medical_certificate) count++;
+    if (u?.rif_file || form.rif_file) count++;
+    if (u?.circulation_permit_file_path || form.circulation_permit) count++;
     return count;
 });
 
