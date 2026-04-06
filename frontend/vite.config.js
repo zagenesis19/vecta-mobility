@@ -1,12 +1,18 @@
 import { defineConfig } from 'vite';
 import laravel from 'laravel-vite-plugin';
-import vue from '@vitejs/plugin-vue'; // <--- IMPORTANTE: El plugin de Vue
+import vue from '@vitejs/plugin-vue';
 
 export default defineConfig({
     plugins: [
         laravel({
-            input: 'resources/js/app.js', // Tu punto de entrada
-            refresh: true,
+            input: 'src/js/app.js',
+            publicDirectory: '../backend/public',
+            buildDirectory: 'build',
+            refresh: [
+                '../backend/resources/views/**',
+                '../backend/routes/**',
+                '../backend/app/**',
+            ],
         }),
         vue({
             template: {
@@ -18,7 +24,7 @@ export default defineConfig({
         }),
     ],
     server: {
-        host: '127.0.0.1',
+        host: '0.0.0.0',
         hmr: {
             host: 'localhost',
         },

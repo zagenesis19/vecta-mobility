@@ -14,7 +14,7 @@
     <link rel="alternate icon" type="image/png" href="{{ asset('images/vecta-logo.png') }}">
     
     @routes
-    @vite(['resources/js/app.js', "resources/js/Pages/{$page['component']}.vue"])
+    @vite(['src/js/app.js', "src/js/Pages/{$page['component']}.vue"])
     @inertiaHead
 </head>
 
