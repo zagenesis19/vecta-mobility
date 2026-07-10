@@ -6,24 +6,21 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     */
     public function up(): void
     {
-        Schema::table('municipalities', function (Blueprint $table) {
+        Schema::create('municipalities', function (Blueprint $table) {
+            $table->id();
+            $table->string('name');
+            $table->string('capital')->nullable();
+            $table->text('description')->nullable();
             $table->longText('svg_path')->nullable();
             $table->json('calibration_data')->nullable();
+            $table->timestamps();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     */
     public function down(): void
     {
-        Schema::table('municipalities', function (Blueprint $table) {
-            $table->dropColumn(['svg_path', 'calibration_data']);
-        });
+        Schema::dropIfExists('municipalities');
     }
 };
