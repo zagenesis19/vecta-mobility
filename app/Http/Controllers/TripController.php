@@ -293,9 +293,20 @@ class TripController extends Controller
         return back()->with('success', 'Pago confirmado.');
     }
     
-    // Método extra para actualizar estatus genérico
+    // Método para actualizar estatus con validación y autorización
     public function updateStatus(Request $request, Trip $trip)
     {
+        $request->validate([
+            'status' => 'required|in:pending,accepted,in_progress,completed,cancelled',
+        ]);
+
+        $user = Auth::user();
+
+        // Solo el conductor asignado, el pasajero del viaje, o un admin pueden cambiar el status
+        if ($user->role !== 'admin' && $user->id !== $trip->driver_id && $user->id !== $trip->passenger_id) {
+            return back()->with('error', 'No estás autorizado para modificar este viaje.');
+        }
+
         $trip->update(['status' => $request->status]);
         return back();
     }
@@ -304,12 +315,12 @@ class TripController extends Controller
     public function updateLocation(Request $request)
     {
         $request->validate([
-            'lat' => 'required|numeric',
-            'lng' => 'required|numeric',
-            'speed' => 'nullable|numeric',
-            'heading' => 'nullable|numeric',
-            'trip_id' => 'nullable|integer',
-            'municipality_id' => 'nullable|integer',
+            'lat' => 'required|numeric|between:-90,90',
+            'lng' => 'required|numeric|between:-180,180',
+            'speed' => 'nullable|numeric|min:0|max:300',
+            'heading' => 'nullable|numeric|between:0,360',
+            'trip_id' => 'nullable|integer|exists:trips,id',
+            'municipality_id' => 'nullable|integer|exists:municipalities,id',
         ]);
 
         $user = Auth::user();

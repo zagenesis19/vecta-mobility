@@ -52,6 +52,17 @@ class Trip extends Model
         'driver_comment',
         'passenger_rating',
         'passenger_comment',
+
+        // Métricas de tiempo
+        'accepted_at',
+
+        // Snapshots (Denormalización)
+        'passenger_snapshot_name',
+        'passenger_snapshot_phone',
+        'driver_snapshot_name',
+        'driver_snapshot_phone',
+        'driver_snapshot_photo',
+        'vehicle_snapshot_data',
     ];
 
     protected $casts = [

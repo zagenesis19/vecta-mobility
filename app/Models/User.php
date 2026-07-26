@@ -55,8 +55,6 @@ class User extends Authenticatable
         'terms_accepted',
         'country',
         'state',
-        'state',
-        'state',
         'municipality', // (Optional legacy field)
         'municipality_id', // 🔥 Clave foránea normalizada
 

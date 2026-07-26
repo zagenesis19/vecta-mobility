@@ -17,32 +17,37 @@ class TripFactory extends Factory
      */
     public function definition(): array
     {
+        $passenger = User::factory();
+
         return [
-            'passenger_id' => User::factory(), // Crea un usuario si no se pasa
-            'origin_address' => $this->faker->address,
-            'destination_address' => $this->faker->address,
-            'origin_lat' => 10.4806, // Caracas aprox
-            'origin_lng' => -66.9036,
-            'destination_lat' => 10.5000,
-            'destination_lng' => -66.9500,
+            'passenger_id' => $passenger,
+            'origin_address' => 'Plaza Bolívar, Charallave',
+            'destination_address' => 'Estación Ferrocarril Cúa',
+            'origin_lat' => 10.2460,
+            'origin_lng' => -66.8620,
+            'destination_lat' => 10.1630,
+            'destination_lng' => -66.8850,
             'status' => 'pending',
             'price' => $this->faker->randomFloat(2, 5, 50),
             'vehicle_type' => 'car',
             'payment_method' => 'Efectivo',
+            'passenger_snapshot_name' => $this->faker->name(),
+            'passenger_snapshot_phone' => '0414' . $this->faker->numerify('#######'),
         ];
     }
 
     /**
-     * Estado para viajes completados.
+     * Estado para viajes aceptados.
      */
-    public function completed()
+    public function accepted(): static
     {
         return $this->state(function (array $attributes) {
             return [
-                'status' => 'completed',
-                'driver_id' => User::factory()->state(['role' => 'driver']),
-                'started_at' => now()->subMinutes(30),
-                'finished_at' => now(),
+                'status' => 'accepted',
+                'driver_id' => User::factory()->driver(),
+                'accepted_at' => now(),
+                'driver_snapshot_name' => $this->faker->name(),
+                'driver_snapshot_phone' => '0412' . $this->faker->numerify('#######'),
             ];
         });
     }
@@ -50,13 +55,51 @@ class TripFactory extends Factory
     /**
      * Estado para viajes en curso.
      */
-    public function inProgress()
+    public function inProgress(): static
     {
         return $this->state(function (array $attributes) {
             return [
                 'status' => 'in_progress',
-                'driver_id' => User::factory()->state(['role' => 'driver']),
+                'driver_id' => User::factory()->driver(),
+                'accepted_at' => now()->subMinutes(15),
                 'started_at' => now()->subMinutes(10),
+                'driver_snapshot_name' => $this->faker->name(),
+                'driver_snapshot_phone' => '0412' . $this->faker->numerify('#######'),
+            ];
+        });
+    }
+
+    /**
+     * Estado para viajes completados.
+     */
+    public function completed(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'status' => 'completed',
+                'driver_id' => User::factory()->driver(),
+                'accepted_at' => now()->subMinutes(45),
+                'started_at' => now()->subMinutes(30),
+                'finished_at' => now(),
+                'duration_minutes' => 30,
+                'payment_confirmed' => true,
+                'driver_snapshot_name' => $this->faker->name(),
+                'driver_snapshot_phone' => '0412' . $this->faker->numerify('#######'),
+            ];
+        });
+    }
+
+    /**
+     * Estado para viajes cancelados.
+     */
+    public function cancelled(): static
+    {
+        return $this->state(function (array $attributes) {
+            return [
+                'status' => 'cancelled',
+                'cancelled_by' => 'passenger',
+                'cancellation_reason' => 'Cambié de opinión',
+                'cancelled_at' => now(),
             ];
         });
     }

@@ -146,13 +146,7 @@ class DashboardController extends Controller
         return Inertia::render('Dashboard', [
             'trips' => $trips,       
             'currentTrip' => $currentTrip, 
-            'pendingActionTrip' => $pendingActionTrip, // Nueva prop
-            'userRole' => 'passenger'
-        ]);
-
-        return Inertia::render('Dashboard', [
-            'trips' => $trips,       
-            'currentTrip' => $currentTrip, 
+            'pendingActionTrip' => $pendingActionTrip,
             'userRole' => 'passenger'
         ]);
     }

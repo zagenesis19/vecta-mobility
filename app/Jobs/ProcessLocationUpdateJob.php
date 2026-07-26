@@ -15,6 +15,16 @@ class ProcessLocationUpdateJob implements ShouldQueue
 {
     use Dispatchable, InteractsWithQueue, Queueable, SerializesModels;
 
+    /**
+     * Número máximo de reintentos antes de marcar como fallido.
+     */
+    public int $tries = 3;
+
+    /**
+     * Backoff exponencial entre reintentos (segundos).
+     */
+    public array $backoff = [2, 5, 10];
+
     protected int $driverId;
     protected float $latitude;
     protected float $longitude;
@@ -52,26 +62,35 @@ class ProcessLocationUpdateJob implements ShouldQueue
      */
     public function handle(): void
     {
-        try {
-            // 1. Insertar el punto de telemetría en el histórico (Breadcrumb trail)
-            VehicleLocation::create([
-                'driver_id' => $this->driverId,
-                'trip_id' => $this->tripId,
-                'latitude' => $this->latitude,
-                'longitude' => $this->longitude,
-                'speed' => $this->speed,
-                'heading' => $this->heading,
-                'municipality_id' => $this->municipalityId,
-                'recorded_at' => $this->recordedAt,
-            ]);
+        // 1. Insertar el punto de telemetría en el histórico (Breadcrumb trail)
+        VehicleLocation::create([
+            'driver_id' => $this->driverId,
+            'trip_id' => $this->tripId,
+            'latitude' => $this->latitude,
+            'longitude' => $this->longitude,
+            'speed' => $this->speed,
+            'heading' => $this->heading,
+            'municipality_id' => $this->municipalityId,
+            'recorded_at' => $this->recordedAt,
+        ]);
 
-            // 2. Actualizar el snapshot en la tabla users (lectura rápida de respaldo)
-            User::where('id', $this->driverId)->update([
-                'current_lat' => $this->latitude,
-                'current_lng' => $this->longitude,
-            ]);
-        } catch (\Throwable $e) {
-            Log::error("Error procesando actualización de ubicación para conductor {$this->driverId}: " . $e->getMessage());
-        }
+        // 2. Actualizar el snapshot en la tabla users (lectura rápida de respaldo)
+        User::where('id', $this->driverId)->update([
+            'current_lat' => $this->latitude,
+            'current_lng' => $this->longitude,
+        ]);
+    }
+
+    /**
+     * Manejar un fallo del job después de agotar todos los reintentos.
+     */
+    public function failed(\Throwable $exception): void
+    {
+        Log::error("[TELEMETRÍA FALLIDA] Conductor {$this->driverId}: {$exception->getMessage()}", [
+            'driver_id' => $this->driverId,
+            'lat' => $this->latitude,
+            'lng' => $this->longitude,
+            'trip_id' => $this->tripId,
+        ]);
     }
 }
