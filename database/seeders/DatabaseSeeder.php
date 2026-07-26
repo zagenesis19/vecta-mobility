@@ -20,7 +20,7 @@ class DatabaseSeeder extends Seeder
         $admin = User::firstOrCreate(
             ['email' => 'admin@vecta.com'],
             [
-                'name' => 'Admin Vecta',
+                'name' => 'Admin Rapiditos',
                 'password' => Hash::make('password'),
                 'role' => 'admin',
                 'is_active' => true,

@@ -116,7 +116,7 @@ const submit = () => {
                 
                 <div class="bg-black p-8 text-white relative overflow-hidden">
                     <div class="absolute -right-10 -top-10 bg-gray-800 rounded-full w-40 h-40 opacity-20"></div>
-                    <h2 class="text-2xl font-bold relative z-10">Vecta Mobility</h2>
+                    <h2 class="text-2xl font-bold relative z-10">Rapiditos de Matalinda</h2>
                     <p class="text-sm text-gray-400 relative z-10">Solicitud de Transporte Inteligente</p>
                 </div>
 

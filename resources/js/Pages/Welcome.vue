@@ -276,7 +276,7 @@ onUnmounted(() => {
 </script>
 
 <template>
-    <Head title="Vecta - Tu viaje seguro en los Valles del Tuy" />
+    <Head title="Rapiditos de Matalinda - Tu viaje seguro en los Valles del Tuy" />
 
     <div class="min-h-screen" style="background-color: #FFFFFF;">
 
@@ -288,7 +288,7 @@ onUnmounted(() => {
                 <div class="flex justify-between items-center h-16">
                     <!-- Logo -->
                     <div class="flex items-center gap-3">
-                        <img src="/images/vecta-logo.png" alt="VECTA" class="h-20 w-auto">
+                        <img src="/images/rapiditos-logo.png" alt="Rapiditos de Matalinda" class="h-16 w-auto rounded-full shadow-md">
                     </div>
 
                     <!-- Nav Links -->
@@ -614,7 +614,7 @@ onUnmounted(() => {
                                 @click="handleRequestRide"
                                 class="block w-full text-center py-3 rounded-lg font-bold transition shadow-lg vecta-btn-primary text-white hover:scale-[1.02]"
                             >
-                                Solicitar VECTA ahora
+                                Solicitar Rapiditos ahora
                             </button>
                         </form>
                     </div>
@@ -838,7 +838,7 @@ onUnmounted(() => {
                 </div>
 
                 <div class="border-t mt-8 pt-8 text-center text-sm" style="border-color: rgba(128, 197, 222, 0.2); color: rgba(255, 255, 255, 0.6);">
-                    Copyright © 2026 VECTA.com
+                    Copyright © 2026 Rapiditos de Matalinda
                 </div>
             </div>
         </footer>

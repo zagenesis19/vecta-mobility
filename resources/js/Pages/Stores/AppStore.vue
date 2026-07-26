@@ -1,6 +1,6 @@
 <template>
     <div class="bg-white min-h-screen font-sans text-gray-900 pb-20">
-        <Head title="Vecta Mobility en App Store" />
+        <Head title="Rapiditos de Matalinda en App Store" />
 
         <!-- App Store Header -->
         <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md border-b border-gray-100">
@@ -18,14 +18,14 @@
         <main class="max-w-5xl mx-auto px-4 py-6">
             <!-- App Header Info -->
             <div class="flex gap-6 mb-8">
-                <img src="/images/vecta-logo.png" alt="Vecta Mobility" class="w-28 h-28 rounded-[2rem] shadow-sm border border-transparent object-contain bg-[#001F5B] p-2">
+                <img src="/images/rapiditos-logo.png" alt="Rapiditos de Matalinda" class="w-28 h-28 rounded-[2rem] shadow-sm border border-transparent object-contain bg-[#001F5B] p-2">
                 <div class="flex-1 flex flex-col justify-between py-1">
                     <div>
-                        <h1 class="text-2xl font-bold tracking-tight mb-1">Vecta Mobility</h1>
+                        <h1 class="text-2xl font-bold tracking-tight mb-1">Rapiditos de Matalinda</h1>
                         <p class="text-gray-500 text-sm mb-1">Tu viaje seguro en los Valles del Tuy</p>
                         <div class="flex items-center gap-2">
                             <span class="inline-block w-4 h-4 rounded-full bg-blue-500 flex items-center justify-center text-[0.6rem] text-white font-bold">✓</span>
-                            <span class="text-gray-400 text-xs">Vecta Inc.</span>
+                            <span class="text-gray-400 text-xs">Rapiditos Inc.</span>
                         </div>
                     </div>
                     <div class="flex justify-between items-end">
@@ -78,7 +78,7 @@
                     <!-- Screen 1: HTML Splash with Real Logo -->
                     <div class="w-64 aspect-[1/2] bg-[#001F5B] rounded-3xl flex-shrink-0 snap-center border-4 border-gray-200 shadow-sm flex flex-col items-center justify-center p-6 relative overflow-hidden">
                         <div class="absolute top-0 left-0 w-full h-full bg-[radial-gradient(circle_at_50%_120%,rgba(128,197,222,0.1),transparent)]"></div>
-                        <img src="/images/vecta-logo.png" alt="Vecta Logo" class="w-32 h-32 object-contain mb-6 z-10">
+                        <img src="/images/rapiditos-logo.png" alt="Rapiditos Logo" class="w-32 h-32 object-contain mb-6 z-10">
                         <div class="text-center z-10">
                             <div class="text-white font-bold text-2xl leading-tight">Tu viaje</div>
                             <div class="text-[#80C5DE] font-black text-3xl tracking-wide">SEGURO</div>
@@ -95,7 +95,7 @@
              <!-- Description -->
              <div class="mb-8">
                  <p class="text-gray-800 leading-relaxed text-sm">
-                     Vecta Mobility es la aplicación líder de transporte en los Valles del Tuy. Conecta con conductores confiables en minutos y muévete con total libertad y seguridad por Cúa, Charallave, Ocumare y más.
+                     Rapiditos de Matalinda es la aplicación líder de transporte en los Valles del Tuy. Conecta con conductores confiables en minutos y muévete con total libertad y seguridad por Cúa, Charallave, Ocumare y más.
                      <br><br>
                      Características principales:
                      <br>• Viajes seguros y monitoreados.
@@ -113,7 +113,7 @@
                           <span class="text-gray-400 text-xs">Hace 2d</span>
                       </div>
                       <div class="text-yellow-500 text-xs mb-2">★★★★★</div>
-                      <p class="text-gray-600 text-sm">Me encanta usar Vecta para ir al trabajo. Los conductores son muy amables.</p>
+                      <p class="text-gray-600 text-sm">Me encanta usar Rapiditos de Matalinda para ir al trabajo. Los conductores son muy amables.</p>
                       <div class="text-gray-400 text-xs mt-2">Usuario123</div>
                   </div>
                   <div class="bg-gray-50 p-4 rounded-xl">

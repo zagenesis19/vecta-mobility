@@ -1,6 +1,6 @@
 <template>
     <div class="bg-white min-h-screen font-sans text-gray-900 pb-20">
-        <Head title="Vecta Mobility - Apps en Google Play" />
+        <Head title="Rapiditos de Matalinda - Apps en Google Play" />
 
         <!-- Google Play Header -->
         <header class="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm flex items-center px-4 h-16 gap-4">
@@ -17,10 +17,10 @@
         <main class="max-w-4xl mx-auto md:px-4 py-6">
             <!-- App Header Info -->
             <div class="flex gap-6 px-4 md:px-0 mb-6">
-                 <img src="/images/vecta-logo.png" alt="Vecta Mobility" class="w-20 h-20 rounded-2xl shadow-sm border border-transparent object-contain bg-[#001F5B] p-2">
+                 <img src="/images/rapiditos-logo.png" alt="Rapiditos de Matalinda" class="w-20 h-20 rounded-2xl shadow-sm border border-transparent object-contain bg-[#001F5B] p-2">
                  <div class="flex-1">
-                     <h1 class="text-2xl font-medium text-gray-900 mb-1">Vecta Mobility</h1>
-                     <div class="text-green-700 font-medium text-sm mb-1">Vecta Inc.</div>
+                     <h1 class="text-2xl font-medium text-gray-900 mb-1">Rapiditos de Matalinda</h1>
+                     <div class="text-green-700 font-medium text-sm mb-1">Rapiditos Inc.</div>
                      <div class="text-gray-500 text-xs mb-3">Contiene anuncios • Compras en la aplicación</div>
                  </div>
             </div>
@@ -60,7 +60,7 @@
              <div class="mb-6 overflow-x-auto flex gap-3 px-4 md:px-0 pb-4">
                  <!-- Screen 1: HTML Splash -->
                  <div class="w-32 aspect-[1/2] bg-[#001F5B] rounded-lg flex-shrink-0 border border-gray-200 shadow-sm flex flex-col items-center justify-center p-2 relative overflow-hidden">
-                     <img src="/images/vecta-logo.png" alt="Vecta Logo" class="w-16 h-16 object-contain mb-2 z-10">
+                     <img src="/images/rapiditos-logo.png" alt="Rapiditos Logo" class="w-16 h-16 object-contain mb-2 z-10">
                      <div class="text-center z-10">
                          <div class="text-white font-bold text-sm leading-tight">Tu viaje</div>
                          <div class="text-[#80C5DE] font-black text-base tracking-wide">SEGURO</div>
@@ -77,7 +77,7 @@
                      <button class="text-[#01875f] text-2xl">→</button>
                  </div>
                  <p class="text-gray-600 text-sm leading-relaxed">
-                     Vecta Mobility es tu compañero de viaje en los Valles del Tuy.
+                      Rapiditos de Matalinda es tu compañero de viaje en los Valles del Tuy.
                      <br><br>
                      Viaja seguro, rápido y al mejor precio. Nuestra comunidad de conductores verificados te llevará a donde necesites ir.
                      <br><br>

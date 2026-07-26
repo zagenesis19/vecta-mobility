@@ -106,7 +106,7 @@ const saveReceiptAsImage = async () => {
         });
         
         const link = document.createElement('a');
-        link.download = `recibo-vecta-${selectedTrip.value.id}.png`;
+        link.download = `recibo-rapiditos-${selectedTrip.value.id}.png`;
         link.href = canvas.toDataURL('image/png');
         link.click();
     } catch (error) {
@@ -412,7 +412,7 @@ const getCancellationLabel = (reason) => {
                             <!-- Recibo -->
                             <div id="receipt-content" class="p-8 bg-white">
                                 <div class="text-center mb-6 border-b-2 border-dashed pb-6">
-                                    <h2 class="text-3xl font-black text-gray-900 mb-2">VECTA MOBILITY</h2>
+                                    <h2 class="text-2xl font-black text-gray-900 mb-2 uppercase">RAPIDITOS DE MATALINDA</h2>
                                     <p class="text-sm text-gray-600">Recibo de Viaje</p>
                                     <p class="text-xs text-gray-500 mt-2">ID: #{{ selectedTrip.id }}</p>
                                 </div>
@@ -463,7 +463,7 @@ const getCancellationLabel = (reason) => {
                                 </div>
 
                                 <div class="text-center text-xs text-gray-500 border-t-2 border-dashed pt-4">
-                                    <p>Gracias por usar Vecta Mobility</p>
+                                    <p>Gracias por usar Rapiditos de Matalinda</p>
                                     <p class="mt-1">¡Que tengas un excelente día!</p>
                                 </div>
                             </div>

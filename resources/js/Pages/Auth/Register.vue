@@ -334,7 +334,7 @@ const submitFinal = () => {
         <Head title="Registro" />
 
         <div class="text-center mb-6">
-            <h2 class="text-2xl font-bold text-gray-900">Únete a Vecta</h2>
+            <h2 class="text-2xl font-bold text-gray-900">Únete a Rapiditos de Matalinda</h2>
             <p class="text-gray-500">Crea tu cuenta en pocos pasos</p>
         </div>
 

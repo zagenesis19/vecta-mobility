@@ -3,7 +3,7 @@ import { Head } from '@inertiajs/vue3';
 </script>
 
 <template>
-    <Head title="Instagram - Vecta Mobility" />
+    <Head title="Instagram - Rapiditos de Matalinda" />
     
     <div class="min-h-screen bg-black text-white flex flex-col font-sans">
         <!-- Header -->
@@ -24,7 +24,7 @@ import { Head } from '@inertiajs/vue3';
                 <div class="w-24 h-24 sm:w-40 sm:h-40 rounded-full p-1 bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500 flex-shrink-0">
                     <div class="w-full h-full rounded-full bg-black p-1">
                         <div class="w-full h-full rounded-full flex items-center justify-center overflow-hidden bg-black">
-                            <img src="/images/vecta-logo.png" alt="Vecta Mobility" class="w-full h-full object-contain p-2">
+                            <img src="/images/rapiditos-logo.png" alt="Rapiditos de Matalinda" class="w-full h-full object-contain p-2">
                         </div>
                     </div>
                 </div>
@@ -32,7 +32,7 @@ import { Head } from '@inertiajs/vue3';
                 <!-- Details -->
                 <div class="flex-1 text-center sm:text-left">
                     <div class="flex flex-col sm:flex-row items-center gap-4 mb-4">
-                        <h1 class="text-xl text-gray-100">vectamobility</h1>
+                        <h1 class="text-xl text-gray-100">rapiditosdematalinda</h1>
                         <div class="flex gap-2">
                             <button class="bg-[#0095f6] hover:bg-[#1877f2] px-6 py-1.5 rounded-lg font-semibold text-sm transition">Follow</button>
                             <button class="bg-gray-800 hover:bg-gray-700 px-4 py-1.5 rounded-lg font-semibold text-sm transition">Message</button>
@@ -46,11 +46,11 @@ import { Head } from '@inertiajs/vue3';
                     </div>
 
                     <div class="text-sm">
-                        <h2 class="font-bold">Vecta Mobility 🇻🇪</h2>
+                        <h2 class="font-bold">Rapiditos de Matalinda 🇻🇪</h2>
                         <p class="text-gray-300">Tu app de transporte en los Valles del Tuy 📍</p>
                         <p class="text-gray-300">🚀 Viajes seguros, rápidos y confiables.</p>
                         <p class="text-gray-300">👇 ¡Descarga la app aquí!</p>
-                        <a href="https://vectamobility.com/descarga" class="text-[#e0f1ff] font-medium hover:underline">linktr.ee/vectamobility</a>
+                        <a href="#" class="text-[#e0f1ff] font-medium hover:underline">linktr.ee/rapiditosdematalinda</a>
                     </div>
                 </div>
             </div>
@@ -160,8 +160,8 @@ import { Head } from '@inertiajs/vue3';
 
                  <!-- Post 9: Brand Logo (Clean Vector Overlay) -->
                 <div class="aspect-square bg-gray-100 relative group overflow-hidden cursor-pointer flex items-center justify-center p-8">
-                     <img src="/images/vecta-logo.png" class="w-full h-auto object-contain drop-shadow-xl z-10 filter invert contrast-100 brightness-0"> <!-- Black Logo -->
-                     <p class="absolute bottom-4 text-xs font-bold tracking-widest text-gray-400">VECTA</p>
+                     <img src="/images/rapiditos-logo.png" class="w-full h-auto object-contain drop-shadow-xl z-10">
+                     <p class="absolute bottom-4 text-xs font-bold tracking-widest text-gray-400">RAPIDITOS DE MATALINDA</p>
                 </div>
 
             </div>
