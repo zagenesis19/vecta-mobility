@@ -300,23 +300,60 @@ class TripController extends Controller
         return back();
     }
 
-    // 🔥 NUEVO MÉTODO: RASTREO GPS EN VIVO (Paso 4 Completado)
+    // 🔥 RASTREO GPS EN VIVO (Baja Latencia: Redis + Job Asíncrono para Histórico)
     public function updateLocation(Request $request)
     {
         $request->validate([
             'lat' => 'required|numeric',
             'lng' => 'required|numeric',
+            'speed' => 'nullable|numeric',
+            'heading' => 'nullable|numeric',
+            'trip_id' => 'nullable|integer',
+            'municipality_id' => 'nullable|integer',
         ]);
 
         $user = Auth::user();
 
         if ($user->role === 'driver') {
-            $user->update([
-                'current_lat' => $request->lat,
-                'current_lng' => $request->lng
-            ]);
-            
-            return response()->json(['status' => 'ubicación actualizada']);
+            $lat = (float) $request->lat;
+            $lng = (float) $request->lng;
+            $speed = $request->speed ? (float) $request->speed : null;
+            $heading = $request->heading ? (float) $request->heading : null;
+            $tripId = $request->trip_id ? (int) $request->trip_id : null;
+            $municipalityId = $request->municipality_id ? (int) $request->municipality_id : null;
+
+            // 1. Guardar estado actual en Caché (Baja latencia en memoria RAM, < 1ms)
+            \Illuminate\Support\Facades\Cache::put("driver:{$user->id}:current_location", [
+                'driver_id' => $user->id,
+                'lat' => $lat,
+                'lng' => $lng,
+                'speed' => $speed,
+                'heading' => $heading,
+                'updated_at' => now()->toIso8601String(),
+            ], now()->addMinutes(15));
+
+            // Intentar almacenar en Redis Geospatial si Redis está configurado
+            try {
+                if (class_exists('Illuminate\Support\Facades\Redis')) {
+                    \Illuminate\Support\Facades\Redis::geoadd("drivers:locations", $lng, $lat, $user->id);
+                }
+            } catch (\Throwable $e) {
+                // Fallback a Cache si Redis no está activo localmente
+            }
+
+            // 2. Persistir de forma asíncrona a la tabla histórica (vehicle_locations) vía Job en Cola
+            \App\Jobs\ProcessLocationUpdateJob::dispatch(
+                $user->id,
+                $lat,
+                $lng,
+                $speed,
+                $heading,
+                $tripId,
+                $municipalityId,
+                now()->toDateTimeString()
+            );
+
+            return response()->json(['status' => 'ubicación actualizada', 'cached' => true]);
         }
 
         return response()->json(['status' => 'error', 'message' => 'No eres conductor'], 403);

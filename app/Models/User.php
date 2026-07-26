@@ -104,6 +104,18 @@ class User extends Authenticatable
         return $this->hasOne(Vehicle::class);
     }
 
+    // 🔥 RELACIÓN: Histórico de telemetría GPS del conductor
+    public function vehicleLocations()
+    {
+        return $this->hasMany(VehicleLocation::class, 'driver_id');
+    }
+
+    // Última posición registrada en telemetría
+    public function latestVehicleLocation()
+    {
+        return $this->hasOne(VehicleLocation::class, 'driver_id')->latestOfMany('recorded_at');
+    }
+
     /*
     |--------------------------------------------------------------------------
     | SISTEMA DE CALIFICACIONES (ESTRELLAS ⭐)

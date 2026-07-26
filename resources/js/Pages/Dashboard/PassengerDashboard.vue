@@ -224,12 +224,16 @@ const cancelTrip = (id) => {
 
 const confirmCancellation = (reason) => {
     if (!tripToCancel.value) return;
-    axios.post(route('trip.cancelWithReason', tripToCancel.value.id), { reason })
-        .then(() => {
+    
+    router.post(route('trip.cancelWithReason', tripToCancel.value.id), { reason }, {
+        onSuccess: () => {
             showCancellationSurvey.value = false;
             tripToCancel.value = null;
-            router.reload();
-        });
+        },
+        onError: (errors) => {
+            alert('No se pudo cancelar el viaje: ' + (errors.reason || 'Ocurrió un error'));
+        }
+    });
 };
 
 const startNewTrip = () => { hideCompletedTrip.value = true; form.reset(); refreshCurrentLocation(); selectedVehicle.value=null; };
